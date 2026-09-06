@@ -108,7 +108,7 @@ func TestNowNextIncludesActiveAndUpcoming(t *testing.T) {
 
 func TestNowNextHandlesOvernightSchedule(t *testing.T) {
 	s := &store{data: dataFile{
-		Stations: []station{{ID: "x", Name: "Night Station"}},
+		Stations:  []station{{ID: "x", Name: "Night Station"}},
 		Schedules: []schedule{{ID: "night", StationID: "x", FrequencyHz: 1000, StartUTC: "23:55", EndUTC: "00:10", Weekdays: []int{1}}},
 	}}
 	at := time.Date(2026, 9, 8, 0, 5, 0, 0, time.UTC) // Tuesday, active from Monday.
