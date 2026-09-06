@@ -52,6 +52,23 @@ type schedule struct {
 	Notes       string `json:"notes,omitempty"`
 }
 
+type occurrence struct {
+	ScheduleID  string    `json:"schedule_id"`
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	FrequencyHz int64     `json:"frequency_hz"`
+	Mode        string    `json:"mode,omitempty"`
+	Start       time.Time `json:"start"`
+	End         time.Time `json:"end"`
+	Notes       string    `json:"notes,omitempty"`
+}
+
+type nowNextResponse struct {
+	At   time.Time    `json:"at"`
+	Now  []occurrence `json:"now"`
+	Next []occurrence `json:"next"`
+}
+
 type dataFile struct {
 	Stations     []station     `json:"stations"`
 	Observations []observation `json:"observations"`
@@ -107,6 +124,15 @@ func (s *store) stationExists(id string) bool {
 		}
 	}
 	return false
+}
+
+func (s *store) stationName(id string) string {
+	for _, st := range s.data.Stations {
+		if st.ID == id {
+			return st.Name
+		}
+	}
+	return id
 }
 
 func (s *store) addStation(v station) error {
@@ -168,6 +194,77 @@ func (s *store) addSchedule(v schedule) error {
 	}
 	s.data.Schedules = append(s.data.Schedules, v)
 	return s.save()
+}
+
+func isoWeekday(t time.Time) int {
+	if t.Weekday() == time.Sunday {
+		return 7
+	}
+	return int(t.Weekday())
+}
+
+func containsDay(days []int, day int) bool {
+	for _, d := range days {
+		if d == day {
+			return true
+		}
+	}
+	return false
+}
+
+func clockOnDay(day time.Time, hhmm string) time.Time {
+	parsed, _ := time.Parse("15:04", hhmm)
+	return time.Date(day.Year(), day.Month(), day.Day(), parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
+}
+
+func scheduleOccurrence(v schedule, day time.Time, stationName string) occurrence {
+	start := clockOnDay(day, v.StartUTC)
+	end := clockOnDay(day, v.EndUTC)
+	if !end.After(start) {
+		end = end.Add(24 * time.Hour)
+	}
+	return occurrence{
+		ScheduleID:  v.ID,
+		StationID:   v.StationID,
+		StationName: stationName,
+		FrequencyHz: v.FrequencyHz,
+		Mode:        v.Mode,
+		Start:       start,
+		End:         end,
+		Notes:       v.Notes,
+	}
+}
+
+func (s *store) nowNext(at time.Time, nextLimit int) nowNextResponse {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	at = at.UTC()
+	if nextLimit < 1 {
+		nextLimit = 5
+	}
+	var active []occurrence
+	var upcoming []occurrence
+	startDay := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
+	for offset := 0; offset < 9; offset++ {
+		day := startDay.AddDate(0, 0, offset)
+		for _, sc := range s.data.Schedules {
+			if !containsDay(sc.Weekdays, isoWeekday(day)) {
+				continue
+			}
+			occ := scheduleOccurrence(sc, day, s.stationName(sc.StationID))
+			if !at.Before(occ.Start) && at.Before(occ.End) {
+				active = append(active, occ)
+			} else if occ.Start.After(at) {
+				upcoming = append(upcoming, occ)
+			}
+		}
+	}
+	sort.Slice(active, func(i, j int) bool { return active[i].Start.Before(active[j].Start) })
+	sort.Slice(upcoming, func(i, j int) bool { return upcoming[i].Start.Before(upcoming[j].Start) })
+	if len(upcoming) > nextLimit {
+		upcoming = upcoming[:nextLimit]
+	}
+	return nowNextResponse{At: at, Now: active, Next: upcoming}
 }
 
 func id() string { return time.Now().UTC().Format("20060102T150405.000000000") }
@@ -251,6 +348,9 @@ func main() {
 			return
 		}
 		writeJSON(w, 201, v)
+	})
+	mux.HandleFunc("GET /api/now-next", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, 200, db.nowNext(time.Now().UTC(), 5))
 	})
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 	log.Printf("Number Station Tools listening on %s", addr)
