@@ -22,10 +22,7 @@ jobs:
           cache: false
 
       - name: Check formatting
-        run: |
-          files="$(gofmt -l ./cmd)"
-          printf '%s\n' "$files"
-          test -z "$files"
+        run: test -z "$(gofmt -l ./cmd)"
 
       - name: Test
         run: go test ./...
