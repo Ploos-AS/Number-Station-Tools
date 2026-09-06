@@ -9,35 +9,44 @@ import (
 func TestStorePersistsM1Data(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	s, err := openStore(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	if err != nil { t.Fatal(err) }
 	st := station{ID: "e11", Name: "E11 Oblique", Aliases: []string{"E11"}}
-	if err := s.addStation(st); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.addObservation(observation{ID: "o1", StationID: "e11", HeardAt: time.Date(2026, 9, 7, 0, 0, 0, 0, time.UTC), FrequencyHz: 5730000, Mode: "USB"}); err != nil {
-		t.Fatal(err)
-	}
+	if err := s.addStation(st); err != nil { t.Fatal(err) }
+	if err := s.addObservation(observation{ID: "o1", StationID: "e11", HeardAt: time.Date(2026, 9, 7, 0, 0, 0, 0, time.UTC), FrequencyHz: 5730000, Mode: "USB"}); err != nil { t.Fatal(err) }
 	r, err := openStore(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(r.data.Stations) != 1 || r.data.Stations[0].Name != "E11 Oblique" {
-		t.Fatalf("station persistence failed: %#v", r.data.Stations)
-	}
-	if len(r.data.Observations) != 1 || r.data.Observations[0].FrequencyHz != 5730000 {
-		t.Fatalf("observation persistence failed: %#v", r.data.Observations)
-	}
+	if err != nil { t.Fatal(err) }
+	if len(r.data.Stations) != 1 || r.data.Stations[0].Name != "E11 Oblique" { t.Fatalf("station persistence failed: %#v", r.data.Stations) }
+	if len(r.data.Observations) != 1 || r.data.Observations[0].FrequencyHz != 5730000 { t.Fatalf("observation persistence failed: %#v", r.data.Observations) }
 }
 
 func TestObservationRequiresExistingStation(t *testing.T) {
 	s, err := openStore(filepath.Join(t.TempDir(), "data.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	if err != nil { t.Fatal(err) }
 	err = s.addObservation(observation{ID: "o1", StationID: "missing", FrequencyHz: 4625000})
-	if err == nil {
-		t.Fatal("expected missing station to be rejected")
+	if err == nil { t.Fatal("expected missing station to be rejected") }
+}
+
+func TestSchedulePersistsAndRequiresExistingStation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data.json")
+	s, err := openStore(path)
+	if err != nil { t.Fatal(err) }
+	if err := s.addStation(station{ID: "e11", Name: "E11 Oblique"}); err != nil { t.Fatal(err) }
+	v := schedule{ID: "s1", StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1, 3, 5}, Mode: "USB"}
+	if err := s.addSchedule(v); err != nil { t.Fatal(err) }
+	r, err := openStore(path)
+	if err != nil { t.Fatal(err) }
+	if len(r.data.Schedules) != 1 || r.data.Schedules[0].FrequencyHz != 5730000 { t.Fatalf("schedule persistence failed: %#v", r.data.Schedules) }
+	if err := s.addSchedule(schedule{StationID: "missing", FrequencyHz: 1, StartUTC: "00:00", EndUTC: "00:01", Weekdays: []int{1}}); err == nil { t.Fatal("expected missing station to be rejected") }
+}
+
+func TestScheduleValidation(t *testing.T) {
+	valid := schedule{StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1, 7}}
+	if err := validateSchedule(valid); err != nil { t.Fatalf("valid schedule rejected: %v", err) }
+	cases := []schedule{
+		{StationID: "e11", FrequencyHz: 0, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1}},
+		{StationID: "e11", FrequencyHz: 1, StartUTC: "25:00", EndUTC: "20:15", Weekdays: []int{1}},
+		{StationID: "e11", FrequencyHz: 1, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{0}},
+		{StationID: "e11", FrequencyHz: 1, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1, 1}},
 	}
+	for i, tc := range cases { if err := validateSchedule(tc); err == nil { t.Fatalf("case %d should fail", i) } }
 }
