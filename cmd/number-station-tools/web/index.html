@@ -11,15 +11,55 @@
     <header>
       <p class="eyebrow">Ploos-AS</p>
       <h1>Number Station Tools</h1>
-      <p class="lede">A local-first workbench for numbers stations, shortwave monitoring and signal analysis.</p>
+      <p class="lede">Local-first numbers-station schedules, frequencies and monitoring notes.</p>
     </header>
-    <section class="grid" aria-label="Planned tools">
-      <article><h2>Stations</h2><p>Station identifiers, aliases, languages, modes and observation history.</p><span>M1</span></article>
-      <article><h2>Schedules</h2><p>UTC schedules, frequencies and expected transmissions.</p><span>M1</span></article>
-      <article><h2>Signals</h2><p>Recordings, spectrograms, segmentation and signal-analysis helpers.</p><span>Planned</span></article>
-      <article><h2>Logbook</h2><p>Structured observations, messages, notes and local archive data.</p><span>Planned</span></article>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div><p class="eyebrow">UTC monitor</p><h2>On now / next</h2></div>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+      <p id="clock" class="status">Loading UTC schedule…</p>
+      <div class="columns">
+        <div><h3>On now</h3><ul id="now-list"></ul></div>
+        <div><h3>Next</h3><ul id="next-list"></ul></div>
+      </div>
     </section>
-    <footer>Number Station Tools M0 foundation</footer>
+
+    <section class="grid">
+      <article>
+        <h2>Add station</h2>
+        <form id="station-form">
+          <label>Name <input name="name" required placeholder="E11 Oblique"></label>
+          <label>Aliases <input name="aliases" placeholder="E11, Oblique"></label>
+          <label>Languages <input name="languages" placeholder="English"></label>
+          <label>Notes <textarea name="notes" placeholder="Local notes"></textarea></label>
+          <button type="submit">Add station</button>
+        </form>
+      </article>
+
+      <article>
+        <h2>Add schedule</h2>
+        <form id="schedule-form">
+          <label>Station <select name="station_id" id="station-select" required></select></label>
+          <label>Frequency Hz <input name="frequency_hz" type="number" min="1" required placeholder="5730000"></label>
+          <div class="two"><label>Start UTC <input name="start_utc" type="time" required></label><label>End UTC <input name="end_utc" type="time" required></label></div>
+          <label>ISO weekdays <input name="weekdays" required placeholder="1,3,5 (Mon=1 Sun=7)"></label>
+          <label>Mode <input name="mode" placeholder="USB"></label>
+          <label>Notes <textarea name="notes" placeholder="Transmission notes"></textarea></label>
+          <button type="submit">Add schedule</button>
+        </form>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Schedule archive</h2>
+      <p id="status" class="status">Loading…</p>
+      <ul id="schedules"></ul>
+    </section>
+
+    <footer>Number Station Tools M2.1 · all schedule times are UTC</footer>
   </main>
+  <script src="/app.js"></script>
 </body>
 </html>
