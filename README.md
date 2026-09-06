@@ -3,26 +3,32 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## M0 foundation
+## Current milestone: M2.1
 
-M0 establishes the runnable project baseline:
+The application currently provides:
 
-- Go backend with embedded web UI
-- `GET /healthz` health endpoint
-- minimal multi-stage OCI image
-- non-root runtime user
-- persistent `/data` volume reserved for future SQLite, recordings and analysis data
-- Docker Compose example
-- amd64/arm64-friendly source layout
-- MIT licensed
+- local station catalogue
+- structured observation logbook
+- persistent UTC schedules and frequencies
+- station/schedule web forms
+- server-side `on now / next` schedule evaluation in UTC
+- correct handling of schedules that cross midnight
+- local JSON persistence under `/data`
+- embedded web UI and JSON API
+- dependency-free Go build and non-root OCI runtime
 
 The application does not require an SDR, receiver, API key or external data
-provider at M0.
+provider for these workflows.
+
+See [docs/M2_1.md](docs/M2_1.md) for the current scope.
 
 ## Run with Go
 
+For a host run, select a writable data path:
+
 ```sh
-go run ./cmd/number-station-tools
+NUMBER_STATION_TOOLS_DATA=./number-station-tools.json \
+  go run ./cmd/number-station-tools
 ```
 
 Open <http://localhost:8080>.
@@ -35,11 +41,13 @@ docker compose up --build
 
 Then open <http://localhost:8080>.
 
-## Health check
+## Useful API endpoints
 
-```sh
-curl http://localhost:8080/healthz
-```
+- `GET /healthz`
+- `GET/POST /api/stations`
+- `GET/POST /api/observations`
+- `GET/POST /api/schedules`
+- `GET /api/now-next`
 
 ## Direction
 

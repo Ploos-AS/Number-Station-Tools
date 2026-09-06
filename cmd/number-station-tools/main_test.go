@@ -84,3 +84,39 @@ func TestScheduleValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestNowNextIncludesActiveAndUpcoming(t *testing.T) {
+	s := &store{data: dataFile{
+		Stations: []station{{ID: "e11", Name: "E11 Oblique"}},
+		Schedules: []schedule{
+			{ID: "active", StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1}},
+			{ID: "next", StationID: "e11", FrequencyHz: 6925000, StartUTC: "21:00", EndUTC: "21:10", Weekdays: []int{1}},
+		},
+	}}
+	at := time.Date(2026, 9, 7, 20, 5, 0, 0, time.UTC) // Monday.
+	got := s.nowNext(at, 5)
+	if len(got.Now) != 1 || got.Now[0].ScheduleID != "active" {
+		t.Fatalf("unexpected active schedules: %#v", got.Now)
+	}
+	if len(got.Next) == 0 || got.Next[0].ScheduleID != "next" {
+		t.Fatalf("unexpected next schedules: %#v", got.Next)
+	}
+	if got.Now[0].StationName != "E11 Oblique" {
+		t.Fatalf("station name missing: %#v", got.Now[0])
+	}
+}
+
+func TestNowNextHandlesOvernightSchedule(t *testing.T) {
+	s := &store{data: dataFile{
+		Stations:  []station{{ID: "x", Name: "Night Station"}},
+		Schedules: []schedule{{ID: "night", StationID: "x", FrequencyHz: 1000, StartUTC: "23:55", EndUTC: "00:10", Weekdays: []int{1}}},
+	}}
+	at := time.Date(2026, 9, 8, 0, 5, 0, 0, time.UTC) // Tuesday, active from Monday.
+	got := s.nowNext(at, 5)
+	if len(got.Now) != 1 || got.Now[0].ScheduleID != "night" {
+		t.Fatalf("overnight schedule not active: %#v", got.Now)
+	}
+	if got.Now[0].End.Day() != 8 {
+		t.Fatalf("overnight end should roll to next UTC day: %v", got.Now[0].End)
+	}
+}
