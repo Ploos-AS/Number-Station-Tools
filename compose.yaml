@@ -1,0 +1,17 @@
+services:
+  number-station-tools:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: ghcr.io/ploos-as/number-station-tools:latest
+    container_name: number-station-tools
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - number-station-tools-data:/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  number-station-tools-data:
