@@ -33,6 +33,7 @@ type station struct {
 type observation struct {
 	ID          string    `json:"id"`
 	StationID   string    `json:"station_id"`
+	ScheduleID  string    `json:"schedule_id,omitempty"`
 	HeardAt     time.Time `json:"heard_at"`
 	FrequencyHz int64     `json:"frequency_hz"`
 	Mode        string    `json:"mode,omitempty"`
@@ -135,6 +136,15 @@ func (s *store) stationName(id string) string {
 	return id
 }
 
+func (s *store) scheduleByID(id string) (schedule, bool) {
+	for _, sc := range s.data.Schedules {
+		if sc.ID == id {
+			return sc, true
+		}
+	}
+	return schedule{}, false
+}
+
 func validateStation(v station) error {
 	if strings.TrimSpace(v.Name) == "" {
 		return errors.New("name is required")
@@ -190,14 +200,74 @@ func (s *store) deleteStation(id string) error {
 	return errors.New("station does not exist")
 }
 
-func (s *store) addObservation(v observation) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func validateObservation(v observation) error {
+	if v.StationID == "" {
+		return errors.New("station_id is required")
+	}
+	if v.FrequencyHz <= 0 {
+		return errors.New("frequency_hz must be positive")
+	}
+	return nil
+}
+
+func (s *store) validateObservationRefs(v observation) error {
 	if !s.stationExists(v.StationID) {
 		return errors.New("station does not exist")
 	}
+	if v.ScheduleID != "" {
+		sc, ok := s.scheduleByID(v.ScheduleID)
+		if !ok {
+			return errors.New("schedule does not exist")
+		}
+		if sc.StationID != v.StationID {
+			return errors.New("schedule belongs to another station")
+		}
+	}
+	return nil
+}
+
+func (s *store) addObservation(v observation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := validateObservation(v); err != nil {
+		return err
+	}
+	if err := s.validateObservationRefs(v); err != nil {
+		return err
+	}
 	s.data.Observations = append(s.data.Observations, v)
 	return s.save()
+}
+
+func (s *store) updateObservation(id string, v observation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := validateObservation(v); err != nil {
+		return err
+	}
+	if err := s.validateObservationRefs(v); err != nil {
+		return err
+	}
+	for i := range s.data.Observations {
+		if s.data.Observations[i].ID == id {
+			v.ID = id
+			s.data.Observations[i] = v
+			return s.save()
+		}
+	}
+	return errors.New("observation does not exist")
+}
+
+func (s *store) deleteObservation(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Observations {
+		if s.data.Observations[i].ID == id {
+			s.data.Observations = append(s.data.Observations[:i], s.data.Observations[i+1:]...)
+			return s.save()
+		}
+	}
+	return errors.New("observation does not exist")
 }
 
 func validHHMM(v string) bool {
@@ -253,6 +323,11 @@ func (s *store) updateSchedule(id string, v schedule) error {
 	if err := validateSchedule(v); err != nil {
 		return err
 	}
+	for _, obs := range s.data.Observations {
+		if obs.ScheduleID == id && obs.StationID != v.StationID {
+			return errors.New("schedule has observations for another station")
+		}
+	}
 	for i := range s.data.Schedules {
 		if s.data.Schedules[i].ID == id {
 			v.ID = id
@@ -266,6 +341,11 @@ func (s *store) updateSchedule(id string, v schedule) error {
 func (s *store) deleteSchedule(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	for _, obs := range s.data.Observations {
+		if obs.ScheduleID == id {
+			return errors.New("schedule has observations")
+		}
+	}
 	for i := range s.data.Schedules {
 		if s.data.Schedules[i].ID == id {
 			s.data.Schedules = append(s.data.Schedules[:i], s.data.Schedules[i+1:]...)
@@ -409,11 +489,13 @@ func main() {
 	mux.HandleFunc("GET /api/observations", func(w http.ResponseWriter, _ *http.Request) {
 		db.mu.Lock()
 		defer db.mu.Unlock()
-		writeJSON(w, 200, db.data.Observations)
+		out := append([]observation(nil), db.data.Observations...)
+		sort.Slice(out, func(i, j int) bool { return out[i].HeardAt.After(out[j].HeardAt) })
+		writeJSON(w, 200, out)
 	})
 	mux.HandleFunc("POST /api/observations", func(w http.ResponseWriter, r *http.Request) {
 		var v observation
-		if decodeJSON(r, &v) != nil || v.StationID == "" || v.FrequencyHz <= 0 {
+		if decodeJSON(r, &v) != nil {
 			http.Error(w, "invalid observation", 400)
 			return
 		}
@@ -421,11 +503,34 @@ func main() {
 			v.HeardAt = time.Now().UTC()
 		}
 		v.ID = id()
-		if db.addObservation(v) != nil {
-			http.Error(w, "store error", 400)
+		if err := db.addObservation(v); err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
 		writeJSON(w, 201, v)
+	})
+	mux.HandleFunc("PUT /api/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var v observation
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid observation", 400)
+			return
+		}
+		if v.HeardAt.IsZero() {
+			v.HeardAt = time.Now().UTC()
+		}
+		if err := db.updateObservation(r.PathValue("id"), v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		v.ID = r.PathValue("id")
+		writeJSON(w, 200, v)
+	})
+	mux.HandleFunc("DELETE /api/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if err := db.deleteObservation(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/schedules", func(w http.ResponseWriter, _ *http.Request) {
 		db.mu.Lock()
@@ -460,7 +565,7 @@ func main() {
 	})
 	mux.HandleFunc("DELETE /api/schedules/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.deleteSchedule(r.PathValue("id")); err != nil {
-			http.Error(w, err.Error(), 404)
+			http.Error(w, err.Error(), 409)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
