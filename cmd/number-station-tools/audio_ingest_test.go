@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"mime/multipart"
@@ -13,6 +14,29 @@ import (
 	"testing"
 	"time"
 )
+
+func testWAV(sampleRate uint32, channels uint16, durationMS int) []byte {
+	bitsPerSample := uint16(16)
+	blockAlign := channels * bitsPerSample / 8
+	byteRate := sampleRate * uint32(blockAlign)
+	dataBytes := uint32(int64(byteRate) * int64(durationMS) / 1000)
+	buf := new(bytes.Buffer)
+	buf.WriteString("RIFF")
+	_ = binary.Write(buf, binary.LittleEndian, uint32(36)+dataBytes)
+	buf.WriteString("WAVE")
+	buf.WriteString("fmt ")
+	_ = binary.Write(buf, binary.LittleEndian, uint32(16))
+	_ = binary.Write(buf, binary.LittleEndian, uint16(1))
+	_ = binary.Write(buf, binary.LittleEndian, channels)
+	_ = binary.Write(buf, binary.LittleEndian, sampleRate)
+	_ = binary.Write(buf, binary.LittleEndian, byteRate)
+	_ = binary.Write(buf, binary.LittleEndian, blockAlign)
+	_ = binary.Write(buf, binary.LittleEndian, bitsPerSample)
+	buf.WriteString("data")
+	_ = binary.Write(buf, binary.LittleEndian, dataBytes)
+	buf.Write(make([]byte, dataBytes))
+	return buf.Bytes()
+}
 
 func TestManagedAudioUploadAndDownload(t *testing.T) {
 	db, err := openStore(filepath.Join(t.TempDir(), "data.json"))
@@ -33,7 +57,7 @@ func TestManagedAudioUploadAndDownload(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAudioHandlers(mux, db, rs, audioDir)
 
-	audio := []byte{'R', 'I', 'F', 'F', 4, 0, 0, 0, 'W', 'A', 'V', 'E', 1, 2, 3, 4}
+	audio := testWAV(8000, 1, 1000)
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	if err := mw.WriteField("observation_id", "o1"); err != nil {
@@ -67,6 +91,9 @@ func TestManagedAudioUploadAndDownload(t *testing.T) {
 	if !rec.Managed || rec.Format != "wav" || rec.OriginalName != "capture.WAV" || rec.SizeBytes != int64(len(audio)) {
 		t.Fatalf("unexpected recording: %#v", rec)
 	}
+	if rec.SampleRateHz != 8000 || rec.Channels != 1 || rec.DurationMS != 1000 {
+		t.Fatalf("automatic metadata = rate:%d channels:%d duration:%d", rec.SampleRateHz, rec.Channels, rec.DurationMS)
+	}
 	sum := sha256.Sum256(audio)
 	if rec.SHA256 != hex.EncodeToString(sum[:]) {
 		t.Fatalf("sha256 = %q", rec.SHA256)
@@ -84,7 +111,7 @@ func TestManagedAudioUploadAndDownload(t *testing.T) {
 	w = httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
 	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), audio) {
-		t.Fatalf("download status=%d body=%q", w.Code, w.Body.Bytes())
+		t.Fatalf("download status=%d body length=%d", w.Code, w.Body.Len())
 	}
 }
 
