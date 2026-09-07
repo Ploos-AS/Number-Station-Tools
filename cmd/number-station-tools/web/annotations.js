@@ -17,8 +17,51 @@
     return text ? JSON.parse(text) : null;
   }
 
-  async function attach(item, recordingID) {
+  function annotationTitle(annotation) {
+    const interval = annotation.end_ms > annotation.start_ms;
+    const when = interval
+      ? `${seconds(annotation.start_ms)}–${seconds(annotation.end_ms)} s`
+      : `${seconds(annotation.start_ms)} s`;
+    return annotation.notes ? `${annotation.label} · ${when} · ${annotation.notes}` : `${annotation.label} · ${when}`;
+  }
+
+  function renderMarkers(item, recording, annotations) {
+    item.querySelectorAll(".annotation-overlay").forEach(node => node.remove());
+    const durationMS = Number(recording?.duration_ms || 0);
+    if (!(durationMS > 0) || !annotations.length) return;
+
+    item.querySelectorAll(".waveform-wrap.playback-track, .spectrogram-wrap.playback-track").forEach(track => {
+      const overlay = document.createElement("div");
+      overlay.className = "annotation-overlay";
+      overlay.setAttribute("aria-label", "Saved recording annotations");
+
+      annotations.forEach(annotation => {
+        const start = Math.max(0, Math.min(durationMS, Number(annotation.start_ms || 0)));
+        const end = Math.max(0, Math.min(durationMS, Number(annotation.end_ms || 0)));
+        const startPct = start / durationMS * 100;
+        const interval = end > start;
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = interval ? "annotation-marker annotation-interval" : "annotation-marker annotation-point";
+        marker.dataset.annotationMarker = String(annotation.start_ms || 0);
+        marker.title = annotationTitle(annotation);
+        marker.setAttribute("aria-label", `Seek to ${annotationTitle(annotation)}`);
+        marker.style.left = `${startPct.toFixed(3)}%`;
+        if (interval) {
+          marker.style.width = `${Math.max(0.35, (end - start) / durationMS * 100).toFixed(3)}%`;
+        }
+        const label = document.createElement("span");
+        label.textContent = annotation.label;
+        marker.append(label);
+        overlay.append(marker);
+      });
+      track.append(overlay);
+    });
+  }
+
+  async function attach(item, recording) {
     if (item.querySelector(".annotation-panel")) return;
+    const recordingID = recording.id;
     const actions = item.querySelector(".actions");
     const panel = document.createElement("div");
     panel.className = "annotation-panel";
@@ -51,10 +94,19 @@
           return `<li data-annotation-id="${escapeHTML(annotation.id)}"><button type="button" data-annotation-seek="${Number(annotation.start_ms)}">${escapeHTML(annotation.label)}</button><span>${escapeHTML(when)}</span>${annotation.notes ? `<span>${escapeHTML(annotation.notes)}</span>` : ""}<button type="button" data-annotation-delete="${escapeHTML(annotation.id)}">Delete</button></li>`;
         }).join("") : "<li>No annotations yet.</li>";
         status.textContent = `${annotations.length} saved`;
+        renderMarkers(item, recording, annotations);
       } catch (error) {
         status.textContent = error.message;
       }
     }
+
+    item.addEventListener("click", event => {
+      const marker = event.target.closest?.("[data-annotation-marker]");
+      if (!marker) return;
+      const audio = item.querySelector(".recording-player audio");
+      if (!audio) return;
+      audio.currentTime = Number(marker.dataset.annotationMarker) / 1000;
+    });
 
     panel.addEventListener("click", async event => {
       const target = event.target;
@@ -102,12 +154,22 @@
     await refreshAnnotations();
   }
 
-  function render() {
+  async function render() {
+    let recordings;
+    try {
+      const response = await fetch("/api/recordings");
+      if (!response.ok) return;
+      recordings = await response.json();
+    } catch {
+      return;
+    }
+    const byID = new Map(recordings.map(recording => [recording.id, recording]));
     list.querySelectorAll("li").forEach(item => {
       const button = item.querySelector("[data-edit-recording], [data-delete-recording]");
       if (!button) return;
       const id = button.dataset.editRecording || button.dataset.deleteRecording;
-      attach(item, id);
+      const recording = byID.get(id);
+      if (recording) attach(item, recording);
     });
   }
 
