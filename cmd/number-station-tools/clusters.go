@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"sort"
+	"strings"
 )
 
 const defaultClusterThreshold = 98.0
@@ -18,6 +21,17 @@ type recordingCluster struct {
 	Members        []clusterMember `json:"members"`
 	MinimumScore   float64         `json:"minimum_score"`
 	ExactDuplicate bool            `json:"exact_duplicate"`
+	Review         *clusterReview  `json:"review,omitempty"`
+}
+
+func stableClusterID(members []clusterMember) string {
+	ids := make([]string, 0, len(members))
+	for _, member := range members {
+		ids = append(ids, member.RecordingID)
+	}
+	sort.Strings(ids)
+	h := sha256.Sum256([]byte(strings.Join(ids, "\x00")))
+	return hex.EncodeToString(h[:12])
 }
 
 func (s *recordingStore) clusters(threshold float64) []recordingCluster {
@@ -64,6 +78,10 @@ func (s *recordingStore) clusters(threshold float64) []recordingCluster {
 		root := find(i)
 		groups[root] = append(groups[root], i)
 	}
+	reviews := make(map[string]clusterReview, len(s.data.ClusterReviews))
+	for _, review := range s.data.ClusterReviews {
+		reviews[review.ClusterID] = review
+	}
 	out := make([]recordingCluster, 0)
 	for _, indexes := range groups {
 		if len(indexes) < 2 {
@@ -91,7 +109,12 @@ func (s *recordingStore) clusters(threshold float64) []recordingCluster {
 				}
 			}
 		}
-		out = append(out, recordingCluster{ID: members[0].RecordingID, Members: members, MinimumScore: minimum, ExactDuplicate: exact})
+		cluster := recordingCluster{ID: stableClusterID(members), Members: members, MinimumScore: minimum, ExactDuplicate: exact}
+		if review, ok := reviews[cluster.ID]; ok {
+			copy := review
+			cluster.Review = &copy
+		}
+		out = append(out, cluster)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if len(out[i].Members) != len(out[j].Members) {
