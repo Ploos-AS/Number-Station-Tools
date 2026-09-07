@@ -81,6 +81,11 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		metadata, err := extractAudioMetadata(tmpPath, format)
+		if err != nil {
+			http.Error(w, "cannot extract audio metadata: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := os.Rename(tmpPath, finalPath); err != nil {
 			http.Error(w, "cannot finalize audio file", http.StatusInternalServerError)
 			return
@@ -93,6 +98,9 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			Path:          filepath.ToSlash(filepath.Join("audio", filename)),
 			Format:        format,
 			SizeBytes:     size,
+			DurationMS:    metadata.DurationMS,
+			SampleRateHz:  metadata.SampleRateHz,
+			Channels:      metadata.Channels,
 			SHA256:        hex.EncodeToString(h.Sum(nil)),
 			Notes:         strings.TrimSpace(r.FormValue("notes")),
 			Managed:       true,
