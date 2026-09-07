@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.5
+## Current milestone: M4.6
 
 The application currently provides:
 
@@ -33,6 +33,8 @@ The application currently provides:
 - edit existing annotations while preserving their stable annotation IDs
 - direct Bookmark creation by right-clicking a waveform/spectrogram position
 - keyboard Bookmark creation with `B` on a focused seek preview
+- fixed annotation categories: `call-up`, `station ID`, `message`, `tone`, `noise`, `fade`, `other`
+- per-recording annotation filtering by category with category-specific marker styling
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -42,15 +44,16 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.5 does not
+support determines whether a WAV/FLAC recording can be played; M4.6 does not
 transcode audio or send it to an external service. Saved timestamp annotations
-persist in `recordings.json`, can be edited through the existing API, and can be
-created directly from the local waveform/spectrogram timeline when duration is known.
+persist in `recordings.json`, can be classified with a fixed local type vocabulary,
+and can be filtered in the workbench. Older annotations without a type are treated
+as `other`.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_5.md](docs/M4_5.md) for the current scope.
+See [docs/M4_6.md](docs/M4_6.md) for the current scope.
 
 ## Run with Go
 
@@ -102,7 +105,7 @@ Number Station Tools is intended to grow into a workbench for:
 - message and group transcription
 - WAV/FLAC recording archive and interactive playback
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
-- timestamp annotations, bookmarks and operator notes on recordings
+- categorized timestamp annotations, bookmarks and operator notes on recordings
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
