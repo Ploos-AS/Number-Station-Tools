@@ -96,19 +96,33 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "cannot build spectrogram preview: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		fingerprint := buildSignalFingerprint(frequency.Bins, spectrogram.Data, spectrogram.TimeBins, spectrogram.FrequencyBins)
+		fingerprint := buildSignalFingerprint(frequency.Bins, spectrogram.Bins, spectrogram.TimeBins, spectrogram.FrequencyBins)
 		if err := os.Rename(tmpPath, finalPath); err != nil {
 			http.Error(w, "cannot finalize audio file", http.StatusInternalServerError)
 			return
 		}
 		cleanup = false
 		rec := recording{
-			ID: recordingID, ObservationID: observationID, Path: filepath.ToSlash(filepath.Join("audio", filename)), Format: format,
-			SizeBytes: size, DurationMS: metadata.DurationMS, SampleRateHz: metadata.SampleRateHz, Channels: metadata.Channels,
-			SHA256: hex.EncodeToString(h.Sum(nil)), Notes: strings.TrimSpace(r.FormValue("notes")), Managed: true, OriginalName: filepath.Base(header.Filename),
-			Waveform: waveform, Frequency: frequency.Bins, FrequencyMaxHz: frequency.MaxHz,
-			Spectrogram: spectrogram.Data, SpectrogramTimeBins: spectrogram.TimeBins, SpectrogramFreqBins: spectrogram.FrequencyBins, SpectrogramMaxHz: spectrogram.MaxHz,
-			Fingerprint: fingerprint,
+			ID:                  recordingID,
+			ObservationID:       observationID,
+			Path:                filepath.ToSlash(filepath.Join("audio", filename)),
+			Format:              format,
+			SizeBytes:           size,
+			DurationMS:          metadata.DurationMS,
+			SampleRateHz:        metadata.SampleRateHz,
+			Channels:            metadata.Channels,
+			SHA256:              hex.EncodeToString(h.Sum(nil)),
+			Notes:               strings.TrimSpace(r.FormValue("notes")),
+			Managed:             true,
+			OriginalName:        filepath.Base(header.Filename),
+			Waveform:            waveform,
+			Frequency:           frequency.Bins,
+			FrequencyMaxHz:      frequency.MaxHz,
+			Spectrogram:         spectrogram.Bins,
+			SpectrogramTimeBins: spectrogram.TimeBins,
+			SpectrogramFreqBins: spectrogram.FrequencyBins,
+			SpectrogramMaxHz:    spectrogram.MaxHz,
+			Fingerprint:         fingerprint,
 		}
 		if err := rs.add(db, rec); err != nil {
 			_ = os.Remove(finalPath)
