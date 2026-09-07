@@ -50,6 +50,16 @@ li span { margin-top: 4px; color: #8ea39c; font-size: .87rem; }
 .loop-controls { display: grid; grid-template-columns: repeat(4, minmax(0, auto)) minmax(120px, 1fr); align-items: center; gap: 8px; margin: 8px 0 4px; }
 .loop-controls button { width: auto; padding: 7px 10px; }
 .loop-status { margin: 0; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: #8dd6bf; }
+.annotation-panel { margin: 14px 0 6px; padding: 12px; border: 1px solid #2d3e39; border-radius: 10px; background: rgba(8,16,14,.55); }
+.annotation-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 10px; }
+.annotation-status { margin: 0; color: #8dd6bf; }
+.annotation-times { display: grid; grid-template-columns: minmax(100px,1fr) auto minmax(100px,1fr) auto; gap: 8px; align-items: end; }
+.annotation-times button { width: auto; white-space: nowrap; }
+.annotation-list { margin-top: 10px; }
+.annotation-list li { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; align-items: center; padding: 8px 0; }
+.annotation-list li span { grid-column: 1 / 3; margin: 0; }
+.annotation-list button { width: auto; }
+.annotation-list [data-annotation-seek] { text-align: left; background: #10241e; }
 footer { margin-top: 40px; color: #75857f; font-size: .9rem; }
-@media (max-width: 700px) { .loop-controls { grid-template-columns: 1fr 1fr; } .loop-status { grid-column: 1 / -1; text-align: left; } }
-@media (max-width: 560px) { .two { grid-template-columns: 1fr; } .panel-head { align-items: flex-start; } .recording-player { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .loop-controls { grid-template-columns: 1fr 1fr; } .loop-status { grid-column: 1 / -1; text-align: left; } .annotation-times { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr; } .panel-head { align-items: flex-start; } .recording-player { grid-template-columns: 1fr; } .annotation-list li { grid-template-columns: 1fr auto; } .annotation-list li span { grid-column: 1 / -1; } }
