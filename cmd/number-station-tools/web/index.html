@@ -11,7 +11,7 @@
     <header>
       <p class="eyebrow">Ploos-AS</p>
       <h1>Number Station Tools</h1>
-      <p class="lede">Local-first numbers-station schedules, frequencies and monitoring logbook.</p>
+      <p class="lede">Local-first numbers-station schedules, monitoring logbook and recording metadata archive.</p>
     </header>
 
     <section class="panel">
@@ -61,12 +61,24 @@
           <div class="two"><button type="submit">Save observation</button><button id="observation-cancel" type="button">Cancel edit</button></div>
         </form>
       </article>
+
+      <article>
+        <h2 id="recording-form-title">Add recording metadata</h2>
+        <form id="recording-form">
+          <input type="hidden" name="id">
+          <label>Observation <select name="observation_id" id="recording-observation-select" required></select></label>
+          <label>Path / filename <input name="path" required placeholder="recordings/2026/e11-5730.flac"></label>
+          <div class="two"><label>Format <select name="format"><option value="flac">FLAC</option><option value="wav">WAV</option></select></label><label>Size bytes <input name="size_bytes" type="number" min="0"></label></div>
+          <div class="two"><label>Duration ms <input name="duration_ms" type="number" min="0"></label><label>Sample rate Hz <input name="sample_rate_hz" type="number" min="0" placeholder="48000"></label></div>
+          <label>Channels <input name="channels" type="number" min="0" placeholder="1"></label>
+          <label>SHA-256 <input name="sha256" minlength="64" maxlength="64" placeholder="optional 64 hex characters"></label>
+          <label>Notes <textarea name="notes" placeholder="Recorder, processing, provenance…"></textarea></label>
+          <div class="two"><button type="submit">Save recording</button><button id="recording-cancel" type="button">Cancel edit</button></div>
+        </form>
+      </article>
     </section>
 
-    <section class="panel">
-      <h2>Stations</h2>
-      <ul id="stations"></ul>
-    </section>
+    <section class="panel"><h2>Stations</h2><ul id="stations"></ul></section>
 
     <section class="panel">
       <div class="panel-head"><div><h2>Schedule archive</h2><p id="status" class="status">Loading…</p></div><input id="schedule-filter" type="search" placeholder="Filter station, frequency, mode, notes…"></div>
@@ -78,7 +90,12 @@
       <ul id="observations"></ul>
     </section>
 
-    <footer>Number Station Tools M2.3 · schedule and observation times are UTC</footer>
+    <section class="panel">
+      <div class="panel-head"><div><h2>Recording archive</h2><p id="recording-status" class="status">Loading…</p></div><input id="recording-filter" type="search" placeholder="Filter observation, path, format, checksum, notes…"></div>
+      <ul id="recordings"></ul>
+    </section>
+
+    <footer>Number Station Tools M3.1 · recording entries are metadata only; audio files remain external/local</footer>
   </main>
   <script src="/app.js"></script>
 </body>
