@@ -157,6 +157,17 @@ func (s *recordingStore) list() []recording {
 	return out
 }
 
+func (s *recordingStore) listForObservation(observationID string) []recording {
+	all := s.list()
+	out := make([]recording, 0)
+	for _, rec := range all {
+		if rec.ObservationID == observationID {
+			out = append(out, rec)
+		}
+	}
+	return out
+}
+
 func (s *recordingStore) observationReferenced(observationID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
