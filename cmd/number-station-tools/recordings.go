@@ -10,18 +10,19 @@ import (
 )
 
 type recording struct {
-	ID            string `json:"id"`
-	ObservationID string `json:"observation_id"`
-	Path          string `json:"path"`
-	Format        string `json:"format"`
-	SizeBytes     int64  `json:"size_bytes,omitempty"`
-	DurationMS    int64  `json:"duration_ms,omitempty"`
-	SampleRateHz  int    `json:"sample_rate_hz,omitempty"`
-	Channels      int    `json:"channels,omitempty"`
-	SHA256        string `json:"sha256,omitempty"`
-	Notes         string `json:"notes,omitempty"`
-	Managed       bool   `json:"managed,omitempty"`
-	OriginalName  string `json:"original_name,omitempty"`
+	ID            string  `json:"id"`
+	ObservationID string  `json:"observation_id"`
+	Path          string  `json:"path"`
+	Format        string  `json:"format"`
+	SizeBytes     int64   `json:"size_bytes,omitempty"`
+	DurationMS    int64   `json:"duration_ms,omitempty"`
+	SampleRateHz  int     `json:"sample_rate_hz,omitempty"`
+	Channels      int     `json:"channels,omitempty"`
+	SHA256        string  `json:"sha256,omitempty"`
+	Notes         string  `json:"notes,omitempty"`
+	Managed       bool    `json:"managed,omitempty"`
+	OriginalName  string  `json:"original_name,omitempty"`
+	Waveform      []uint8 `json:"waveform,omitempty"`
 }
 
 type recordingData struct {
@@ -78,6 +79,9 @@ func validateRecording(v recording) error {
 	if v.SizeBytes < 0 || v.DurationMS < 0 || v.SampleRateHz < 0 || v.Channels < 0 {
 		return errors.New("numeric metadata must not be negative")
 	}
+	if len(v.Waveform) > waveformBins {
+		return errors.New("waveform preview is too large")
+	}
 	if v.SHA256 != "" {
 		hash := strings.ToLower(strings.TrimSpace(v.SHA256))
 		if len(hash) != 64 {
@@ -129,9 +133,22 @@ func (s *recordingStore) update(db *store, recordingID string, v recording) erro
 	defer s.mu.Unlock()
 	for i := range s.data.Recordings {
 		if s.data.Recordings[i].ID == recordingID {
+			existing := s.data.Recordings[i]
 			v.ID = recordingID
 			v.Format = strings.ToLower(strings.TrimSpace(v.Format))
 			v.SHA256 = strings.ToLower(strings.TrimSpace(v.SHA256))
+			if existing.Managed {
+				v.Managed = true
+				v.OriginalName = existing.OriginalName
+				v.Path = existing.Path
+				v.Format = existing.Format
+				v.SizeBytes = existing.SizeBytes
+				v.DurationMS = existing.DurationMS
+				v.SampleRateHz = existing.SampleRateHz
+				v.Channels = existing.Channels
+				v.SHA256 = existing.SHA256
+				v.Waveform = append([]uint8(nil), existing.Waveform...)
+			}
 			s.data.Recordings[i] = v
 			return s.save()
 		}
