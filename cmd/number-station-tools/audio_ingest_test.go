@@ -33,7 +33,7 @@ func TestManagedAudioUploadAndDownload(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAudioHandlers(mux, db, rs, audioDir)
 
-	audio := []byte("RIFF-test-audio")
+	audio := []byte{'R', 'I', 'F', 'F', 4, 0, 0, 0, 'W', 'A', 'V', 'E', 1, 2, 3, 4}
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	if err := mw.WriteField("observation_id", "o1"); err != nil {
@@ -108,5 +108,31 @@ func TestManagedAudioRejectsUnsupportedExtension(t *testing.T) {
 	mux.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d", w.Code)
+	}
+}
+
+func TestManagedAudioRejectsFakeWAV(t *testing.T) {
+	db, _ := openStore(filepath.Join(t.TempDir(), "data.json"))
+	_ = db.addStation(station{ID: "s1", Name: "Test"})
+	_ = db.addObservation(observation{ID: "o1", StationID: "s1", HeardAt: time.Now().UTC(), FrequencyHz: 1000})
+	rs, _ := openRecordingStore(filepath.Join(t.TempDir(), "recordings.json"))
+	mux := http.NewServeMux()
+	registerAudioHandlers(mux, db, rs, filepath.Join(t.TempDir(), "audio"))
+
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	_ = mw.WriteField("observation_id", "o1")
+	part, _ := mw.CreateFormFile("file", "fake.wav")
+	_, _ = part.Write([]byte("this is not a wave file"))
+	_ = mw.Close()
+	req := httptest.NewRequest(http.MethodPost, "/api/audio", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if len(rs.list()) != 0 {
+		t.Fatal("fake WAV created metadata")
 	}
 }
