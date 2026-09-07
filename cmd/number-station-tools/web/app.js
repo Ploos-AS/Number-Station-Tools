@@ -1,19 +1,27 @@
 const stationForm = document.querySelector("#station-form");
 const scheduleForm = document.querySelector("#schedule-form");
+const observationForm = document.querySelector("#observation-form");
 const stationSelect = document.querySelector("#station-select");
+const observationStationSelect = document.querySelector("#observation-station-select");
+const observationScheduleSelect = document.querySelector("#observation-schedule-select");
 const stationsList = document.querySelector("#stations");
 const schedulesList = document.querySelector("#schedules");
+const observationsList = document.querySelector("#observations");
 const nowList = document.querySelector("#now-list");
 const nextList = document.querySelector("#next-list");
 const statusBox = document.querySelector("#status");
+const observationStatus = document.querySelector("#observation-status");
 const clockBox = document.querySelector("#clock");
 const refreshButton = document.querySelector("#refresh");
 const filterBox = document.querySelector("#schedule-filter");
+const observationFilter = document.querySelector("#observation-filter");
 const stationCancel = document.querySelector("#station-cancel");
 const scheduleCancel = document.querySelector("#schedule-cancel");
+const observationCancel = document.querySelector("#observation-cancel");
 
 let stations = [];
 let schedules = [];
+let observations = [];
 
 async function api(path, options = {}) {
   const response = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
@@ -28,68 +36,110 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"})[c]);
 }
 function stationName(id) { return stations.find(s => s.id === id)?.name || id; }
+function scheduleName(id) {
+  const s = schedules.find(x => x.id === id);
+  return s ? `${stationName(s.station_id)} ${khz(s.frequency_hz)} ${s.start_utc} UTC` : id;
+}
 function weekdays(days) { return days.map(d => ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][d - 1] || d).join(" "); }
 function khz(hz) { return (hz / 1000).toLocaleString(undefined, {maximumFractionDigits: 3}) + " kHz"; }
+function utcInputValue(value) { return value ? new Date(value).toISOString().slice(0,16) : ""; }
 function occurrenceHTML(item) {
   const start = new Date(item.start).toISOString().slice(11,16);
   const end = new Date(item.end).toISOString().slice(11,16);
-  return `<li><strong>${escapeHTML(item.station_name)}</strong><span>${khz(item.frequency_hz)} · ${escapeHTML(item.mode || "mode n/a")} · ${start}–${end} UTC</span></li>`;
+  return `<li><strong>${escapeHTML(item.station_name)}</strong><span>${khz(item.frequency_hz)} · ${escapeHTML(item.mode || "mode n/a")} · ${start}–${end} UTC</span><div class="actions"><button type="button" data-log-schedule="${escapeHTML(item.schedule_id)}">Log heard</button></div></li>`;
+}
+
+function stationOptions() {
+  return stations.length ? stations.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("") : '<option value="">Add a station first</option>';
+}
+function syncObservationSchedules() {
+  const stationID = observationForm.elements.station_id.value;
+  const linked = observationForm.elements.schedule_id.value;
+  const options = schedules.filter(s => s.station_id === stationID);
+  observationScheduleSelect.innerHTML = '<option value="">None / unscheduled</option>' + options.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(scheduleName(s.id))}</option>`).join("");
+  if (options.some(s => s.id === linked)) observationScheduleSelect.value = linked;
 }
 
 function renderStations() {
   stationsList.innerHTML = stations.length ? stations.map(s => `<li><strong>${escapeHTML(s.name)}</strong><span>${escapeHTML((s.aliases || []).join(", "))}</span><div class="actions"><button type="button" data-edit-station="${escapeHTML(s.id)}">Edit</button><button type="button" data-delete-station="${escapeHTML(s.id)}">Delete</button></div></li>`).join("") : "<li>No stations yet.</li>";
 }
-
 function renderSchedules() {
   const q = filterBox.value.trim().toLowerCase();
   const filtered = schedules.filter(item => !q || [stationName(item.station_id), item.frequency_hz, item.mode, item.notes, item.start_utc, item.end_utc, weekdays(item.weekdays)].join(" ").toLowerCase().includes(q));
-  schedulesList.innerHTML = filtered.length ? filtered.map(item => `<li><strong>${escapeHTML(stationName(item.station_id))}</strong><span>${khz(item.frequency_hz)} · ${escapeHTML(item.start_utc)}–${escapeHTML(item.end_utc)} UTC · ${weekdays(item.weekdays)} · ${escapeHTML(item.mode || "mode n/a")}</span><div class="actions"><button type="button" data-edit-schedule="${escapeHTML(item.id)}">Edit</button><button type="button" data-delete-schedule="${escapeHTML(item.id)}">Delete</button></div></li>`).join("") : "<li>No matching schedules.</li>";
+  schedulesList.innerHTML = filtered.length ? filtered.map(item => `<li><strong>${escapeHTML(stationName(item.station_id))}</strong><span>${khz(item.frequency_hz)} · ${escapeHTML(item.start_utc)}–${escapeHTML(item.end_utc)} UTC · ${weekdays(item.weekdays)} · ${escapeHTML(item.mode || "mode n/a")}</span><div class="actions"><button type="button" data-log-schedule="${escapeHTML(item.id)}">Log heard</button><button type="button" data-edit-schedule="${escapeHTML(item.id)}">Edit</button><button type="button" data-delete-schedule="${escapeHTML(item.id)}">Delete</button></div></li>`).join("") : "<li>No matching schedules.</li>";
+}
+function renderObservations() {
+  const q = observationFilter.value.trim().toLowerCase();
+  const filtered = observations.filter(item => !q || [stationName(item.station_id), item.frequency_hz, item.mode, item.signal, item.message, item.notes, item.schedule_id ? scheduleName(item.schedule_id) : "unscheduled", item.heard_at].join(" ").toLowerCase().includes(q));
+  observationsList.innerHTML = filtered.length ? filtered.map(item => `<li><strong>${escapeHTML(stationName(item.station_id))}</strong><span>${khz(item.frequency_hz)} · ${escapeHTML(item.mode || "mode n/a")} · ${escapeHTML(item.signal || "signal n/a")} · ${escapeHTML(new Date(item.heard_at).toISOString())}</span>${item.schedule_id ? `<span>Schedule: ${escapeHTML(scheduleName(item.schedule_id))}</span>` : ""}${item.message ? `<span>Message: ${escapeHTML(item.message)}</span>` : ""}${item.notes ? `<span>Notes: ${escapeHTML(item.notes)}</span>` : ""}<div class="actions"><button type="button" data-edit-observation="${escapeHTML(item.id)}">Edit</button><button type="button" data-delete-observation="${escapeHTML(item.id)}">Delete</button></div></li>`).join("") : "<li>No matching observations.</li>";
 }
 
 async function refresh() {
   try {
-    const [stationData, scheduleData, nowNext] = await Promise.all([api("/api/stations"), api("/api/schedules"), api("/api/now-next")]);
-    stations = stationData;
-    schedules = scheduleData;
-    stationSelect.innerHTML = stations.length ? stations.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("") : '<option value="">Add a station first</option>';
-    renderStations();
-    renderSchedules();
+    const [stationData, scheduleData, observationData, nowNext] = await Promise.all([api("/api/stations"), api("/api/schedules"), api("/api/observations"), api("/api/now-next")]);
+    stations = stationData; schedules = scheduleData; observations = observationData;
+    stationSelect.innerHTML = stationOptions();
+    observationStationSelect.innerHTML = stationOptions();
+    syncObservationSchedules();
+    renderStations(); renderSchedules(); renderObservations();
     nowList.innerHTML = nowNext.now.length ? nowNext.now.map(occurrenceHTML).join("") : "<li>Nothing scheduled right now.</li>";
     nextList.innerHTML = nowNext.next.length ? nowNext.next.map(occurrenceHTML).join("") : "<li>No upcoming schedule in the next week.</li>";
     clockBox.textContent = "Schedule evaluated at " + new Date(nowNext.at).toISOString().replace(".000Z", "Z");
     statusBox.textContent = `${stations.length} stations · ${schedules.length} schedules · local data`;
-  } catch (error) { statusBox.textContent = error.message; clockBox.textContent = error.message; }
+    observationStatus.textContent = `${observations.length} observations · newest first`;
+  } catch (error) { statusBox.textContent = error.message; observationStatus.textContent = error.message; clockBox.textContent = error.message; }
 }
 
 function resetStationForm() { stationForm.reset(); stationForm.elements.id.value = ""; document.querySelector("#station-form-title").textContent = "Add station"; }
 function resetScheduleForm() { scheduleForm.reset(); scheduleForm.elements.id.value = ""; document.querySelector("#schedule-form-title").textContent = "Add schedule"; }
+function resetObservationForm() { observationForm.reset(); observationForm.elements.id.value = ""; document.querySelector("#observation-form-title").textContent = "Log observation"; syncObservationSchedules(); }
+function fillObservationFromSchedule(scheduleID) {
+  const s = schedules.find(x => x.id === scheduleID); if (!s) return;
+  resetObservationForm();
+  observationForm.elements.station_id.value = s.station_id;
+  syncObservationSchedules();
+  observationForm.elements.schedule_id.value = s.id;
+  observationForm.elements.frequency_hz.value = s.frequency_hz;
+  observationForm.elements.mode.value = s.mode || "";
+  observationForm.elements.heard_at.value = utcInputValue(new Date());
+  document.querySelector("#observation-form-title").textContent = "Log heard schedule";
+  observationForm.scrollIntoView({behavior:"smooth", block:"start"});
+}
 
 stationForm.addEventListener("submit", async event => {
   event.preventDefault(); const f = new FormData(stationForm); const id = f.get("id");
   const payload = {name:f.get("name"), aliases:String(f.get("aliases")).split(",").map(v=>v.trim()).filter(Boolean), languages:String(f.get("languages")).split(",").map(v=>v.trim()).filter(Boolean), notes:f.get("notes")};
   try { await api(id ? `/api/stations/${id}` : "/api/stations", {method:id ? "PUT" : "POST", body:JSON.stringify(payload)}); resetStationForm(); await refresh(); } catch (error) { statusBox.textContent = error.message; }
 });
-
 scheduleForm.addEventListener("submit", async event => {
   event.preventDefault(); const f = new FormData(scheduleForm); const id = f.get("id");
   const payload = {station_id:f.get("station_id"), frequency_hz:Number(f.get("frequency_hz")), start_utc:f.get("start_utc"), end_utc:f.get("end_utc"), weekdays:String(f.get("weekdays")).split(",").map(v=>Number(v.trim())).filter(Number.isInteger), mode:f.get("mode"), notes:f.get("notes")};
   try { await api(id ? `/api/schedules/${id}` : "/api/schedules", {method:id ? "PUT" : "POST", body:JSON.stringify(payload)}); resetScheduleForm(); await refresh(); } catch (error) { statusBox.textContent = error.message; }
 });
-
-document.addEventListener("click", async event => {
-  const eStation = event.target.dataset.editStation;
-  const dStation = event.target.dataset.deleteStation;
-  const eSchedule = event.target.dataset.editSchedule;
-  const dSchedule = event.target.dataset.deleteSchedule;
-  if (eStation) { const s = stations.find(x=>x.id===eStation); stationForm.elements.id.value=s.id; stationForm.elements.name.value=s.name; stationForm.elements.aliases.value=(s.aliases||[]).join(", "); stationForm.elements.languages.value=(s.languages||[]).join(", "); stationForm.elements.notes.value=s.notes||""; document.querySelector("#station-form-title").textContent="Edit station"; }
-  if (eSchedule) { const s=schedules.find(x=>x.id===eSchedule); scheduleForm.elements.id.value=s.id; scheduleForm.elements.station_id.value=s.station_id; scheduleForm.elements.frequency_hz.value=s.frequency_hz; scheduleForm.elements.start_utc.value=s.start_utc; scheduleForm.elements.end_utc.value=s.end_utc; scheduleForm.elements.weekdays.value=s.weekdays.join(","); scheduleForm.elements.mode.value=s.mode||""; scheduleForm.elements.notes.value=s.notes||""; document.querySelector("#schedule-form-title").textContent="Edit schedule"; }
-  if (dSchedule && confirm("Delete this schedule?")) { try { await api(`/api/schedules/${dSchedule}`, {method:"DELETE"}); await refresh(); } catch(error){ statusBox.textContent=error.message; } }
-  if (dStation && confirm("Delete this station? This is blocked while schedules or observations reference it.")) { try { await api(`/api/stations/${dStation}`, {method:"DELETE"}); await refresh(); } catch(error){ statusBox.textContent=error.message; } }
+observationForm.addEventListener("submit", async event => {
+  event.preventDefault(); const f = new FormData(observationForm); const id = f.get("id");
+  const heard = f.get("heard_at") ? new Date(String(f.get("heard_at")) + "Z").toISOString() : null;
+  const payload = {station_id:f.get("station_id"), schedule_id:f.get("schedule_id"), heard_at:heard, frequency_hz:Number(f.get("frequency_hz")), mode:f.get("mode"), signal:f.get("signal"), message:f.get("message"), notes:f.get("notes")};
+  try { await api(id ? `/api/observations/${id}` : "/api/observations", {method:id ? "PUT" : "POST", body:JSON.stringify(payload)}); resetObservationForm(); await refresh(); } catch (error) { observationStatus.textContent = error.message; }
 });
 
+document.addEventListener("click", async event => {
+  const t = event.target;
+  if (t.dataset.logSchedule) fillObservationFromSchedule(t.dataset.logSchedule);
+  if (t.dataset.editStation) { const s=stations.find(x=>x.id===t.dataset.editStation); stationForm.elements.id.value=s.id; stationForm.elements.name.value=s.name; stationForm.elements.aliases.value=(s.aliases||[]).join(", "); stationForm.elements.languages.value=(s.languages||[]).join(", "); stationForm.elements.notes.value=s.notes||""; document.querySelector("#station-form-title").textContent="Edit station"; }
+  if (t.dataset.editSchedule) { const s=schedules.find(x=>x.id===t.dataset.editSchedule); scheduleForm.elements.id.value=s.id; scheduleForm.elements.station_id.value=s.station_id; scheduleForm.elements.frequency_hz.value=s.frequency_hz; scheduleForm.elements.start_utc.value=s.start_utc; scheduleForm.elements.end_utc.value=s.end_utc; scheduleForm.elements.weekdays.value=s.weekdays.join(","); scheduleForm.elements.mode.value=s.mode||""; scheduleForm.elements.notes.value=s.notes||""; document.querySelector("#schedule-form-title").textContent="Edit schedule"; }
+  if (t.dataset.editObservation) { const o=observations.find(x=>x.id===t.dataset.editObservation); observationForm.elements.id.value=o.id; observationForm.elements.station_id.value=o.station_id; syncObservationSchedules(); observationForm.elements.schedule_id.value=o.schedule_id||""; observationForm.elements.heard_at.value=utcInputValue(o.heard_at); observationForm.elements.frequency_hz.value=o.frequency_hz; observationForm.elements.mode.value=o.mode||""; observationForm.elements.signal.value=o.signal||""; observationForm.elements.message.value=o.message||""; observationForm.elements.notes.value=o.notes||""; document.querySelector("#observation-form-title").textContent="Edit observation"; }
+  if (t.dataset.deleteObservation && confirm("Delete this observation?")) { try { await api(`/api/observations/${t.dataset.deleteObservation}`, {method:"DELETE"}); await refresh(); } catch(error){ observationStatus.textContent=error.message; } }
+  if (t.dataset.deleteSchedule && confirm("Delete this schedule? Linked observations must be removed or unlinked first.")) { try { await api(`/api/schedules/${t.dataset.deleteSchedule}`, {method:"DELETE"}); await refresh(); } catch(error){ statusBox.textContent=error.message; } }
+  if (t.dataset.deleteStation && confirm("Delete this station? This is blocked while schedules or observations reference it.")) { try { await api(`/api/stations/${t.dataset.deleteStation}`, {method:"DELETE"}); await refresh(); } catch(error){ statusBox.textContent=error.message; } }
+});
+
+observationStationSelect.addEventListener("change", syncObservationSchedules);
 stationCancel.addEventListener("click", resetStationForm);
 scheduleCancel.addEventListener("click", resetScheduleForm);
+observationCancel.addEventListener("click", resetObservationForm);
 filterBox.addEventListener("input", renderSchedules);
+observationFilter.addEventListener("input", renderObservations);
 refreshButton.addEventListener("click", refresh);
 refresh();
 setInterval(refresh, 60000);
