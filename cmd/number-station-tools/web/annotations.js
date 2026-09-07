@@ -47,9 +47,7 @@
         marker.title = annotationTitle(annotation);
         marker.setAttribute("aria-label", `Seek to ${annotationTitle(annotation)}`);
         marker.style.left = `${startPct.toFixed(3)}%`;
-        if (interval) {
-          marker.style.width = `${Math.max(0.35, (end - start) / durationMS * 100).toFixed(3)}%`;
-        }
+        if (interval) marker.style.width = `${Math.max(0.35, (end - start) / durationMS * 100).toFixed(3)}%`;
         const label = document.createElement("span");
         label.textContent = annotation.label;
         marker.append(label);
@@ -68,6 +66,7 @@
     panel.innerHTML = `
       <div class="annotation-head"><strong>Bookmarks / annotations</strong><span class="annotation-status"></span></div>
       <form class="annotation-form">
+        <input type="hidden" name="annotation_id">
         <div class="annotation-times">
           <label>Start ms <input name="start_ms" type="number" min="0" step="1" value="0" required></label>
           <button type="button" data-annotation-current="start">Start = current</button>
@@ -76,25 +75,62 @@
         </div>
         <label>Label <input name="label" maxlength="120" required placeholder="Call-up, station ID, message starts…"></label>
         <label>Notes <textarea name="notes" maxlength="2000" placeholder="Optional local note"></textarea></label>
-        <button type="submit">Save annotation</button>
+        <div class="annotation-form-actions"><button type="submit" data-annotation-save>Save annotation</button><button type="button" data-annotation-cancel hidden>Cancel edit</button></div>
       </form>
+      <p class="annotation-help">Right-click a waveform/spectrogram position to save a Bookmark immediately. With a preview focused, press B to bookmark the current playback position.</p>
       <ul class="annotation-list"></ul>`;
     item.insertBefore(panel, actions || null);
 
     const form = panel.querySelector(".annotation-form");
     const status = panel.querySelector(".annotation-status");
     const annotationsList = panel.querySelector(".annotation-list");
+    const saveButton = panel.querySelector("[data-annotation-save]");
+    const cancelButton = panel.querySelector("[data-annotation-cancel]");
+    let annotations = [];
+
+    function resetForm(startMS = 0) {
+      form.reset();
+      form.elements.annotation_id.value = "";
+      form.elements.start_ms.value = String(Math.max(0, Math.round(startMS)));
+      saveButton.textContent = "Save annotation";
+      cancelButton.hidden = true;
+    }
+
+    function editAnnotation(annotation) {
+      form.elements.annotation_id.value = annotation.id;
+      form.elements.start_ms.value = String(annotation.start_ms || 0);
+      form.elements.end_ms.value = annotation.end_ms > annotation.start_ms ? String(annotation.end_ms) : "";
+      form.elements.label.value = annotation.label || "";
+      form.elements.notes.value = annotation.notes || "";
+      saveButton.textContent = "Update annotation";
+      cancelButton.hidden = false;
+      form.elements.label.focus();
+    }
 
     async function refreshAnnotations() {
       try {
-        const annotations = await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations`);
+        annotations = await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations`);
         annotationsList.innerHTML = annotations.length ? annotations.map(annotation => {
           const interval = annotation.end_ms > annotation.start_ms;
           const when = interval ? `${seconds(annotation.start_ms)}–${seconds(annotation.end_ms)} s` : `${seconds(annotation.start_ms)} s`;
-          return `<li data-annotation-id="${escapeHTML(annotation.id)}"><button type="button" data-annotation-seek="${Number(annotation.start_ms)}">${escapeHTML(annotation.label)}</button><span>${escapeHTML(when)}</span>${annotation.notes ? `<span>${escapeHTML(annotation.notes)}</span>` : ""}<button type="button" data-annotation-delete="${escapeHTML(annotation.id)}">Delete</button></li>`;
+          return `<li data-annotation-id="${escapeHTML(annotation.id)}"><button type="button" data-annotation-seek="${Number(annotation.start_ms)}">${escapeHTML(annotation.label)}</button><span>${escapeHTML(when)}</span>${annotation.notes ? `<span>${escapeHTML(annotation.notes)}</span>` : ""}<div class="annotation-row-actions"><button type="button" data-annotation-edit="${escapeHTML(annotation.id)}">Edit</button><button type="button" data-annotation-delete="${escapeHTML(annotation.id)}">Delete</button></div></li>`;
         }).join("") : "<li>No annotations yet.</li>";
         status.textContent = `${annotations.length} saved`;
         renderMarkers(item, recording, annotations);
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    }
+
+    async function createBookmarkAt(startMS) {
+      const bounded = Math.max(0, Math.min(Number(recording.duration_ms || startMS), Math.round(startMS)));
+      try {
+        await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations`, {
+          method: "POST",
+          body: JSON.stringify({start_ms: bounded, end_ms: 0, label: "Bookmark", notes: ""})
+        });
+        status.textContent = `Bookmark saved at ${seconds(bounded)} s`;
+        await refreshAnnotations();
       } catch (error) {
         status.textContent = error.message;
       }
@@ -108,6 +144,26 @@
       audio.currentTime = Number(marker.dataset.annotationMarker) / 1000;
     });
 
+    item.addEventListener("contextmenu", event => {
+      const track = event.target.closest?.(".waveform-wrap.playback-track, .spectrogram-wrap.playback-track");
+      if (!track || event.target.closest?.(".annotation-marker")) return;
+      const durationMS = Number(recording.duration_ms || 0);
+      if (!(durationMS > 0)) return;
+      const rect = track.getBoundingClientRect();
+      if (!(rect.width > 0)) return;
+      event.preventDefault();
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      createBookmarkAt(ratio * durationMS);
+    });
+
+    item.addEventListener("keydown", event => {
+      if (event.key.toLowerCase() !== "b" || !event.target.closest?.(".interactive-seek")) return;
+      const audio = item.querySelector(".recording-player audio");
+      if (!audio || !Number.isFinite(audio.currentTime)) return;
+      event.preventDefault();
+      createBookmarkAt(audio.currentTime * 1000);
+    });
+
     panel.addEventListener("click", async event => {
       const target = event.target;
       if (target.dataset.annotationCurrent) {
@@ -118,12 +174,17 @@
       }
       if (target.dataset.annotationSeek) {
         const audio = item.querySelector(".recording-player audio");
-        if (!audio) return;
-        audio.currentTime = Number(target.dataset.annotationSeek) / 1000;
+        if (audio) audio.currentTime = Number(target.dataset.annotationSeek) / 1000;
       }
+      if (target.dataset.annotationEdit) {
+        const annotation = annotations.find(candidate => candidate.id === target.dataset.annotationEdit);
+        if (annotation) editAnnotation(annotation);
+      }
+      if (target.dataset.annotationCancel !== undefined) resetForm();
       if (target.dataset.annotationDelete) {
         try {
           await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations/${encodeURIComponent(target.dataset.annotationDelete)}`, {method: "DELETE"});
+          if (form.elements.annotation_id.value === target.dataset.annotationDelete) resetForm();
           await refreshAnnotations();
         } catch (error) {
           status.textContent = error.message;
@@ -134,23 +195,26 @@
     form.addEventListener("submit", async event => {
       event.preventDefault();
       const data = new FormData(form);
+      const annotationID = String(data.get("annotation_id") || "");
       const payload = {
         start_ms: Number(data.get("start_ms") || 0),
         end_ms: Number(data.get("end_ms") || 0),
         label: data.get("label"),
         notes: data.get("notes")
       };
+      const path = annotationID
+        ? `/api/recordings/${encodeURIComponent(recordingID)}/annotations/${encodeURIComponent(annotationID)}`
+        : `/api/recordings/${encodeURIComponent(recordingID)}/annotations`;
       try {
-        await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations`, {method: "POST", body: JSON.stringify(payload)});
-        const currentStart = form.elements.start_ms.value;
-        form.reset();
-        form.elements.start_ms.value = currentStart || "0";
+        await request(path, {method: annotationID ? "PUT" : "POST", body: JSON.stringify(payload)});
+        resetForm(payload.start_ms);
         await refreshAnnotations();
       } catch (error) {
         status.textContent = error.message;
       }
     });
 
+    resetForm();
     await refreshAnnotations();
   }
 
