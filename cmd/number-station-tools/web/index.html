@@ -31,16 +31,18 @@
     <section class="panel"><h2>Stations</h2><ul id="stations"></ul></section>
     <section class="panel"><div class="panel-head"><div><h2>Schedule archive</h2><p id="status" class="status">Loading…</p></div><input id="schedule-filter" type="search" placeholder="Filter station, frequency, mode, notes…"></div><ul id="schedules"></ul></section>
     <section class="panel"><div class="panel-head"><div><h2>Observation logbook</h2><p id="observation-status" class="status">Loading…</p></div><input id="observation-filter" type="search" placeholder="Filter station, frequency, signal, message, notes…"></div><ul id="observations"></ul></section>
-    <section class="panel"><div class="panel-head"><div><h2>Recording archive</h2><p id="recording-status" class="status">Loading…</p></div><input id="recording-filter" type="search" placeholder="Filter observation, path, format, checksum, notes…"></div><ul id="recordings"></ul></section>
+    <section class="panel"><div class="panel-head"><div><h2>Recording archive</h2><p id="recording-status" class="status">Loading…</p></div><input id="recording-filter" type="search" placeholder="Filter observation, path, format, checksum, notes…"></div><p class="status">Managed audio can be played locally. The playback position is mirrored across waveform and spectrogram previews.</p><ul id="recordings"></ul></section>
     <section class="panel"><div class="panel-head"><div><h2>Fingerprint clusters</h2><p id="cluster-status" class="status">Scanning…</p></div><div class="two"><label>Threshold % <input id="cluster-threshold" type="number" min="1" max="100" step="0.1" value="98"></label><button id="cluster-refresh" type="button">Refresh</button></div></div><p class="status">Review a cluster as same transmission, same station, false positive, or duplicate capture. Reviews and notes stay local.</p><ul id="recording-clusters"></ul></section>
 
-    <footer>Number Station Tools M3.9 · local cluster review and classification for fingerprint matches</footer>
+    <footer>Number Station Tools M4.0 · local recording playback with synchronized signal-analysis cursor</footer>
   </main>
   <script src="/app.js"></script>
   <script src="/upload.js"></script>
+  <script src="/preview-bytes.js"></script>
   <script src="/waveform.js"></script>
   <script src="/frequency.js"></script>
   <script src="/spectrogram.js"></script>
+  <script src="/playback.js"></script>
   <script src="/similarity.js"></script>
   <script src="/clusters.js"></script>
 </body>
