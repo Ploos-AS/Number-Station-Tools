@@ -443,7 +443,9 @@ func main() {
 		log.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, healthResponse{"ok", time.Now().UTC().Format(time.RFC3339)}) })
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, 200, healthResponse{"ok", time.Now().UTC().Format(time.RFC3339)})
+	})
 	mux.HandleFunc("GET /api/stations", func(w http.ResponseWriter, _ *http.Request) {
 		db.mu.Lock()
 		defer db.mu.Unlock()
@@ -453,20 +455,35 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/stations", func(w http.ResponseWriter, r *http.Request) {
 		var v station
-		if decodeJSON(r, &v) != nil { http.Error(w, "invalid station", 400); return }
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid station", 400)
+			return
+		}
 		v.ID = id()
-		if err := db.addStation(v); err != nil { http.Error(w, err.Error(), 400); return }
+		if err := db.addStation(v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		writeJSON(w, 201, v)
 	})
 	mux.HandleFunc("PUT /api/stations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var v station
-		if decodeJSON(r, &v) != nil { http.Error(w, "invalid station", 400); return }
-		if err := db.updateStation(r.PathValue("id"), v); err != nil { http.Error(w, err.Error(), 400); return }
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid station", 400)
+			return
+		}
+		if err := db.updateStation(r.PathValue("id"), v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		v.ID = r.PathValue("id")
 		writeJSON(w, 200, v)
 	})
 	mux.HandleFunc("DELETE /api/stations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := db.deleteStation(r.PathValue("id")); err != nil { http.Error(w, err.Error(), 409); return }
+		if err := db.deleteStation(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), 409)
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/observations", func(w http.ResponseWriter, _ *http.Request) {
@@ -478,22 +495,41 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/observations", func(w http.ResponseWriter, r *http.Request) {
 		var v observation
-		if decodeJSON(r, &v) != nil { http.Error(w, "invalid observation", 400); return }
-		if v.HeardAt.IsZero() { v.HeardAt = time.Now().UTC() }
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid observation", 400)
+			return
+		}
+		if v.HeardAt.IsZero() {
+			v.HeardAt = time.Now().UTC()
+		}
 		v.ID = id()
-		if err := db.addObservation(v); err != nil { http.Error(w, err.Error(), 400); return }
+		if err := db.addObservation(v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		writeJSON(w, 201, v)
 	})
 	mux.HandleFunc("PUT /api/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var v observation
-		if decodeJSON(r, &v) != nil { http.Error(w, "invalid observation", 400); return }
-		if v.HeardAt.IsZero() { v.HeardAt = time.Now().UTC() }
-		if err := db.updateObservation(r.PathValue("id"), v); err != nil { http.Error(w, err.Error(), 400); return }
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid observation", 400)
+			return
+		}
+		if v.HeardAt.IsZero() {
+			v.HeardAt = time.Now().UTC()
+		}
+		if err := db.updateObservation(r.PathValue("id"), v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		v.ID = r.PathValue("id")
 		writeJSON(w, 200, v)
 	})
 	mux.HandleFunc("DELETE /api/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := db.deleteObservation(r.PathValue("id")); err != nil { http.Error(w, err.Error(), 404); return }
+		if err := db.deleteObservation(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/schedules", func(w http.ResponseWriter, _ *http.Request) {
@@ -503,29 +539,48 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/schedules", func(w http.ResponseWriter, r *http.Request) {
 		var v schedule
-		if decodeJSON(r, &v) != nil { http.Error(w, "invalid schedule", 400); return }
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid schedule", 400)
+			return
+		}
 		v.ID = id()
-		if err := db.addSchedule(v); err != nil { http.Error(w, err.Error(), 400); return }
+		if err := db.addSchedule(v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		writeJSON(w, 201, v)
 	})
 	mux.HandleFunc("PUT /api/schedules/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var v schedule
-		if decodeJSON(r, &v) != nil { http.Error(w, "invalid schedule", 400); return }
-		if err := db.updateSchedule(r.PathValue("id"), v); err != nil { http.Error(w, err.Error(), 400); return }
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid schedule", 400)
+			return
+		}
+		if err := db.updateSchedule(r.PathValue("id"), v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		v.ID = r.PathValue("id")
 		writeJSON(w, 200, v)
 	})
 	mux.HandleFunc("DELETE /api/schedules/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := db.deleteSchedule(r.PathValue("id")); err != nil { http.Error(w, err.Error(), 409); return }
+		if err := db.deleteSchedule(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), 409)
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/now-next", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, db.nowNext(time.Now().UTC(), 5)) })
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 	log.Printf("Number Station Tools listening on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil { log.Fatal(err) }
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func getenv(key, fallback string) string {
-	if value := os.Getenv(key); value != "" { return value }
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 	return fallback
 }
