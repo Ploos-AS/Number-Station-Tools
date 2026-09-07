@@ -31,5 +31,9 @@ ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 li { border-bottom: 1px solid #2d3e39; padding: 10px 0; }
 li strong, li span { display: block; }
 li span { margin-top: 4px; color: #8ea39c; font-size: .87rem; }
+.waveform-wrap, .frequency-wrap { margin: 10px 0 2px; }
+.waveform-preview, .frequency-preview { display: block; width: 100%; height: 64px; border: 1px solid #2d3e39; border-radius: 8px; background: #0b1210; fill: #8dd6bf; }
+.frequency-preview { height: 72px; fill: #b7d58f; }
+.frequency-labels { display: flex; justify-content: space-between; margin-bottom: 3px; color: #75857f; font-size: .72rem; }
 footer { margin-top: 40px; color: #75857f; font-size: .9rem; }
 @media (max-width: 560px) { .two { grid-template-columns: 1fr; } .panel-head { align-items: flex-start; } }

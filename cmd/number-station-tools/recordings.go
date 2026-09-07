@@ -10,19 +10,21 @@ import (
 )
 
 type recording struct {
-	ID            string  `json:"id"`
-	ObservationID string  `json:"observation_id"`
-	Path          string  `json:"path"`
-	Format        string  `json:"format"`
-	SizeBytes     int64   `json:"size_bytes,omitempty"`
-	DurationMS    int64   `json:"duration_ms,omitempty"`
-	SampleRateHz  int     `json:"sample_rate_hz,omitempty"`
-	Channels      int     `json:"channels,omitempty"`
-	SHA256        string  `json:"sha256,omitempty"`
-	Notes         string  `json:"notes,omitempty"`
-	Managed       bool    `json:"managed,omitempty"`
-	OriginalName  string  `json:"original_name,omitempty"`
-	Waveform      []uint8 `json:"waveform,omitempty"`
+	ID             string  `json:"id"`
+	ObservationID  string  `json:"observation_id"`
+	Path           string  `json:"path"`
+	Format         string  `json:"format"`
+	SizeBytes      int64   `json:"size_bytes,omitempty"`
+	DurationMS     int64   `json:"duration_ms,omitempty"`
+	SampleRateHz   int     `json:"sample_rate_hz,omitempty"`
+	Channels       int     `json:"channels,omitempty"`
+	SHA256         string  `json:"sha256,omitempty"`
+	Notes          string  `json:"notes,omitempty"`
+	Managed        bool    `json:"managed,omitempty"`
+	OriginalName   string  `json:"original_name,omitempty"`
+	Waveform       []uint8 `json:"waveform,omitempty"`
+	Frequency      []uint8 `json:"frequency,omitempty"`
+	FrequencyMaxHz int     `json:"frequency_max_hz,omitempty"`
 }
 
 type recordingData struct {
@@ -76,11 +78,14 @@ func validateRecording(v recording) error {
 	if format != "wav" && format != "flac" {
 		return errors.New("format must be wav or flac")
 	}
-	if v.SizeBytes < 0 || v.DurationMS < 0 || v.SampleRateHz < 0 || v.Channels < 0 {
+	if v.SizeBytes < 0 || v.DurationMS < 0 || v.SampleRateHz < 0 || v.Channels < 0 || v.FrequencyMaxHz < 0 {
 		return errors.New("numeric metadata must not be negative")
 	}
 	if len(v.Waveform) > waveformBins {
 		return errors.New("waveform preview is too large")
+	}
+	if len(v.Frequency) > frequencyBins {
+		return errors.New("frequency preview is too large")
 	}
 	if v.SHA256 != "" {
 		hash := strings.ToLower(strings.TrimSpace(v.SHA256))
@@ -148,6 +153,8 @@ func (s *recordingStore) update(db *store, recordingID string, v recording) erro
 				v.Channels = existing.Channels
 				v.SHA256 = existing.SHA256
 				v.Waveform = append([]uint8(nil), existing.Waveform...)
+				v.Frequency = append([]uint8(nil), existing.Frequency...)
+				v.FrequencyMaxHz = existing.FrequencyMaxHz
 			}
 			s.data.Recordings[i] = v
 			return s.save()
