@@ -86,6 +86,11 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "cannot extract audio metadata: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		waveform, err := buildWaveformPreview(tmpPath, format)
+		if err != nil {
+			http.Error(w, "cannot build waveform preview: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := os.Rename(tmpPath, finalPath); err != nil {
 			http.Error(w, "cannot finalize audio file", http.StatusInternalServerError)
 			return
@@ -105,6 +110,7 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			Notes:         strings.TrimSpace(r.FormValue("notes")),
 			Managed:       true,
 			OriginalName:  filepath.Base(header.Filename),
+			Waveform:      waveform,
 		}
 		if err := rs.add(db, rec); err != nil {
 			_ = os.Remove(finalPath)
