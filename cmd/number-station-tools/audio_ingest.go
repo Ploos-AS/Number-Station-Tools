@@ -22,20 +22,17 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "invalid or oversized multipart upload", http.StatusBadRequest)
 			return
 		}
-
 		observationID := strings.TrimSpace(r.FormValue("observation_id"))
 		if observationID == "" || !observationExists(db, observationID) {
 			http.Error(w, "observation does not exist", http.StatusBadRequest)
 			return
 		}
-
 		src, header, err := r.FormFile("file")
 		if err != nil {
 			http.Error(w, "file is required", http.StatusBadRequest)
 			return
 		}
 		defer src.Close()
-
 		format, ext, err := audioFormatFromFilename(header.Filename)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -45,7 +42,6 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "cannot create audio storage", http.StatusInternalServerError)
 			return
 		}
-
 		recordingID := id()
 		filename := recordingID + ext
 		finalPath := filepath.Join(audioDir, filename)
@@ -62,7 +58,6 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 				_ = os.Remove(tmpPath)
 			}
 		}()
-
 		h := sha256.New()
 		size, err := io.Copy(io.MultiWriter(dst, h), src)
 		if err != nil {
@@ -101,12 +96,12 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "cannot build spectrogram preview: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		fingerprint := buildSignalFingerprint(frequency.Bins, spectrogram.Bins, spectrogram.TimeBins, spectrogram.FrequencyBins)
 		if err := os.Rename(tmpPath, finalPath); err != nil {
 			http.Error(w, "cannot finalize audio file", http.StatusInternalServerError)
 			return
 		}
 		cleanup = false
-
 		rec := recording{
 			ID:                  recordingID,
 			ObservationID:       observationID,
@@ -127,6 +122,7 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			SpectrogramTimeBins: spectrogram.TimeBins,
 			SpectrogramFreqBins: spectrogram.FrequencyBins,
 			SpectrogramMaxHz:    spectrogram.MaxHz,
+			Fingerprint:         fingerprint,
 		}
 		if err := rs.add(db, rec); err != nil {
 			_ = os.Remove(finalPath)
@@ -135,7 +131,6 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 		}
 		writeJSON(w, http.StatusCreated, rec)
 	})
-
 	mux.HandleFunc("GET /api/recordings/{id}/file", func(w http.ResponseWriter, r *http.Request) {
 		rec, ok := rs.byID(r.PathValue("id"))
 		if !ok {
