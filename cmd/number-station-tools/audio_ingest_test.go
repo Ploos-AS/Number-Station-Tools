@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -112,6 +113,27 @@ func TestManagedAudioUploadAndDownload(t *testing.T) {
 	mux.ServeHTTP(w, req)
 	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), audio) {
 		t.Fatalf("download status=%d body length=%d", w.Code, w.Body.Len())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/recordings/"+rec.ID+"/stream", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), audio) {
+		t.Fatalf("stream status=%d body length=%d", w.Code, w.Body.Len())
+	}
+	if !strings.HasPrefix(w.Header().Get("Content-Disposition"), "inline;") {
+		t.Fatalf("stream content disposition = %q", w.Header().Get("Content-Disposition"))
+	}
+	if w.Header().Get("Accept-Ranges") != "bytes" {
+		t.Fatalf("stream accept ranges = %q", w.Header().Get("Accept-Ranges"))
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/recordings/"+rec.ID+"/stream", nil)
+	req.Header.Set("Range", "bytes=0-3")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusPartialContent || w.Body.String() != "RIFF" {
+		t.Fatalf("range status=%d body=%q", w.Code, w.Body.String())
 	}
 }
 
