@@ -33,8 +33,9 @@ type recording struct {
 }
 
 type recordingData struct {
-	Recordings     []recording     `json:"recordings"`
-	ClusterReviews []clusterReview `json:"cluster_reviews,omitempty"`
+	Recordings     []recording          `json:"recordings"`
+	ClusterReviews []clusterReview      `json:"cluster_reviews,omitempty"`
+	Annotations    []recordingAnnotation `json:"annotations,omitempty"`
 }
 
 type recordingStore struct {
@@ -44,7 +45,7 @@ type recordingStore struct {
 }
 
 func openRecordingStore(path string) (*recordingStore, error) {
-	s := &recordingStore{path: path, data: recordingData{Recordings: []recording{}, ClusterReviews: []clusterReview{}}}
+	s := &recordingStore{path: path, data: recordingData{Recordings: []recording{}, ClusterReviews: []clusterReview{}, Annotations: []recordingAnnotation{}}}
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return s, nil
@@ -60,6 +61,9 @@ func openRecordingStore(path string) (*recordingStore, error) {
 	}
 	if s.data.ClusterReviews == nil {
 		s.data.ClusterReviews = []clusterReview{}
+	}
+	if s.data.Annotations == nil {
+		s.data.Annotations = []recordingAnnotation{}
 	}
 	return s, nil
 }
@@ -192,6 +196,13 @@ func (s *recordingStore) delete(recordingID string) error {
 	for i := range s.data.Recordings {
 		if s.data.Recordings[i].ID == recordingID {
 			s.data.Recordings = append(s.data.Recordings[:i], s.data.Recordings[i+1:]...)
+			annotations := s.data.Annotations[:0]
+			for _, annotation := range s.data.Annotations {
+				if annotation.RecordingID != recordingID {
+					annotations = append(annotations, annotation)
+				}
+			}
+			s.data.Annotations = annotations
 			return s.save()
 		}
 	}
