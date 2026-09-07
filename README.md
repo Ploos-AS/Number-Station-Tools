@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.2
+## Current milestone: M4.3
 
 The application currently provides:
 
@@ -28,6 +28,7 @@ The application currently provides:
 - click/drag seeking directly on waveform and mini-spectrogram previews
 - keyboard seeking on focused previews with arrow, Home and End keys
 - temporary A-B loop regions with repeated playback and highlighted selection
+- persistent recording point bookmarks and timestamp-interval annotations
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -37,15 +38,15 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.2 does not
+support determines whether a WAV/FLAC recording can be played; M4.3 does not
 transcode audio or send it to an external service. Waveform and spectrogram
-previews act as local seek surfaces, and A-B loop regions remain browser-session
-state only.
+previews act as local seek surfaces, A-B loop regions remain browser-session
+state, and saved timestamp annotations persist in `recordings.json`.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_2.md](docs/M4_2.md) for the current scope.
+See [docs/M4_3.md](docs/M4_3.md) for the current scope.
 
 ## Run with Go
 
@@ -81,6 +82,8 @@ Then open <http://localhost:8080>.
 - `PUT /api/recording-clusters/{id}/review?threshold=98`
 - `DELETE /api/recording-clusters/{id}/review`
 - `GET /api/observations/{id}/recordings`
+- `GET/POST /api/recordings/{id}/annotations`
+- `PUT/DELETE /api/recordings/{id}/annotations/{annotationID}`
 - `POST /api/audio`
 - `GET /api/recordings/{id}/file`
 - `GET /api/recordings/{id}/stream`
@@ -95,6 +98,7 @@ Number Station Tools is intended to grow into a workbench for:
 - message and group transcription
 - WAV/FLAC recording archive and interactive playback
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
+- timestamp annotations, bookmarks and operator notes on recordings
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
