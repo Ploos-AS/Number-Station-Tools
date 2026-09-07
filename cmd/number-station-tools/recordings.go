@@ -33,7 +33,8 @@ type recording struct {
 }
 
 type recordingData struct {
-	Recordings []recording `json:"recordings"`
+	Recordings     []recording     `json:"recordings"`
+	ClusterReviews []clusterReview `json:"cluster_reviews,omitempty"`
 }
 
 type recordingStore struct {
@@ -43,7 +44,7 @@ type recordingStore struct {
 }
 
 func openRecordingStore(path string) (*recordingStore, error) {
-	s := &recordingStore{path: path, data: recordingData{Recordings: []recording{}}}
+	s := &recordingStore{path: path, data: recordingData{Recordings: []recording{}, ClusterReviews: []clusterReview{}}}
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return s, nil
@@ -56,6 +57,9 @@ func openRecordingStore(path string) (*recordingStore, error) {
 	}
 	if s.data.Recordings == nil {
 		s.data.Recordings = []recording{}
+	}
+	if s.data.ClusterReviews == nil {
+		s.data.ClusterReviews = []clusterReview{}
 	}
 	return s, nil
 }
