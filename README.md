@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M3.9
+## Current milestone: M4.0
 
 The application currently provides:
 
@@ -23,6 +23,8 @@ The application currently provides:
 - exact file-duplicate flagging from matching SHA-256 values inside clusters
 - persistent local cluster review/classification with notes and UTC review time
 - membership-stable cluster identifiers so reviews only attach to the reviewed member set
+- inline local playback for managed recordings with HTTP byte-range seeking
+- synchronized playback cursor across waveform and mini-spectrogram previews
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -31,10 +33,14 @@ Cluster reviews support `same transmission`, `same station`, `false positive`,
 and `duplicate capture`. They are stored locally alongside recording metadata and
 do not require AI, an API key, or an external service.
 
+Managed playback reads audio directly from the appliance. Browser-native codec
+support determines whether a WAV/FLAC recording can be played; M4.0 does not
+transcode audio or send it to an external service.
+
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M3_9.md](docs/M3_9.md) for the current scope.
+See [docs/M4_0.md](docs/M4_0.md) for the current scope.
 
 ## Run with Go
 
@@ -72,6 +78,7 @@ Then open <http://localhost:8080>.
 - `GET /api/observations/{id}/recordings`
 - `POST /api/audio`
 - `GET /api/recordings/{id}/file`
+- `GET /api/recordings/{id}/stream`
 
 ## Direction
 
@@ -81,7 +88,7 @@ Number Station Tools is intended to grow into a workbench for:
 - UTC transmission schedules and frequencies
 - structured observation logging
 - message and group transcription
-- WAV/FLAC recording archive
+- WAV/FLAC recording archive and interactive playback
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
