@@ -2,8 +2,9 @@
   const list = document.querySelector("#recordings");
   if (!list) return;
 
-  function svgFor(values, maxHz) {
-    if (!Array.isArray(values) || values.length === 0 || !maxHz) return "";
+  function svgFor(rawValues, maxHz) {
+    const values = window.NumberStationPreview?.bytes(rawValues) || [];
+    if (!values.length || !maxHz) return "";
     const width = 512;
     const height = 72;
     const step = width / values.length;
@@ -34,16 +35,16 @@
       if (!button) return;
       const id = button.dataset.editRecording || button.dataset.deleteRecording;
       const recording = byID.get(id);
-      if (!recording?.frequency?.length || !recording.frequency_max_hz) return;
+      const markup = svgFor(recording?.frequency, recording?.frequency_max_hz);
+      if (!markup) return;
       const actions = item.querySelector(".actions");
       const wrapper = document.createElement("div");
       wrapper.className = "frequency-wrap";
-      wrapper.innerHTML = svgFor(recording.frequency, recording.frequency_max_hz);
+      wrapper.innerHTML = markup;
       item.insertBefore(wrapper, actions || null);
     });
   }
 
-  const observer = new MutationObserver(() => render());
-  observer.observe(list, {childList: true, subtree: true});
+  new MutationObserver(render).observe(list, {childList: true, subtree: true});
   render();
 })();
