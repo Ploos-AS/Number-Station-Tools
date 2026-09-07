@@ -20,6 +20,8 @@ type recording struct {
 	Channels      int    `json:"channels,omitempty"`
 	SHA256        string `json:"sha256,omitempty"`
 	Notes         string `json:"notes,omitempty"`
+	Managed       bool   `json:"managed,omitempty"`
+	OriginalName  string `json:"original_name,omitempty"`
 }
 
 type recordingData struct {
@@ -155,6 +157,17 @@ func (s *recordingStore) list() []recording {
 	out := append([]recording(nil), s.data.Recordings...)
 	sort.Slice(out, func(i, j int) bool { return out[i].ID > out[j].ID })
 	return out
+}
+
+func (s *recordingStore) byID(recordingID string) (recording, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, rec := range s.data.Recordings {
+		if rec.ID == recordingID {
+			return rec, true
+		}
+	}
+	return recording{}, false
 }
 
 func (s *recordingStore) listForObservation(observationID string) []recording {

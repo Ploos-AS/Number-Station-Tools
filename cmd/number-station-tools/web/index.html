@@ -11,7 +11,7 @@
     <header>
       <p class="eyebrow">Ploos-AS</p>
       <h1>Number Station Tools</h1>
-      <p class="lede">Local-first numbers-station schedules, monitoring logbook and recording metadata archive.</p>
+      <p class="lede">Local-first numbers-station schedules, monitoring logbook and recording archive.</p>
     </header>
 
     <section class="panel">
@@ -76,6 +76,18 @@
           <div class="two"><button type="submit">Save recording</button><button id="recording-cancel" type="button">Cancel edit</button></div>
         </form>
       </article>
+
+      <article>
+        <h2>Upload managed audio</h2>
+        <p>Store a WAV/FLAC copy inside the appliance. Size and SHA-256 are calculated automatically.</p>
+        <form id="audio-upload-form" enctype="multipart/form-data">
+          <label>Observation <select name="observation_id" id="audio-observation-select" required></select></label>
+          <label>WAV/FLAC file <input name="file" type="file" accept=".wav,.flac,audio/wav,audio/flac" required></label>
+          <label>Notes <textarea name="notes" placeholder="Source, receiver, capture notes…"></textarea></label>
+          <button type="submit">Upload audio</button>
+          <p id="audio-upload-status" class="status"></p>
+        </form>
+      </article>
     </section>
 
     <section class="panel"><h2>Stations</h2><ul id="stations"></ul></section>
@@ -95,8 +107,9 @@
       <ul id="recordings"></ul>
     </section>
 
-    <footer>Number Station Tools M3.1 · recording entries are metadata only; audio files remain external/local</footer>
+    <footer>Number Station Tools M3.2 · managed audio is stored locally; SDR capture is not yet required</footer>
   </main>
   <script src="/app.js"></script>
+  <script src="/upload.js"></script>
 </body>
 </html>

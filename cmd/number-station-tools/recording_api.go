@@ -3,6 +3,8 @@ package main
 import "net/http"
 
 func registerRecordingHandlers(mux *http.ServeMux, db *store, rs *recordingStore) {
+	registerAudioHandlers(mux, db, rs, getenv("NUMBER_STATION_TOOLS_AUDIO_DIR", "/data/audio"))
+
 	mux.HandleFunc("GET /api/recordings", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, rs.list())
 	})
@@ -16,6 +18,8 @@ func registerRecordingHandlers(mux *http.ServeMux, db *store, rs *recordingStore
 			return
 		}
 		v.ID = id()
+		v.Managed = false
+		v.OriginalName = ""
 		if err := rs.add(db, v); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -27,6 +31,19 @@ func registerRecordingHandlers(mux *http.ServeMux, db *store, rs *recordingStore
 		if decodeJSON(r, &v) != nil {
 			http.Error(w, "invalid recording", http.StatusBadRequest)
 			return
+		}
+		current, ok := rs.byID(r.PathValue("id"))
+		if !ok {
+			http.Error(w, "recording does not exist", http.StatusNotFound)
+			return
+		}
+		v.Managed = current.Managed
+		v.OriginalName = current.OriginalName
+		if current.Managed {
+			v.Path = current.Path
+			v.Format = current.Format
+			v.SizeBytes = current.SizeBytes
+			v.SHA256 = current.SHA256
 		}
 		if err := rs.update(db, r.PathValue("id"), v); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
