@@ -11,6 +11,10 @@ func registerRecordingHandlers(mux *http.ServeMux, db *store, rs *recordingStore
 	mux.HandleFunc("GET /api/recordings", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, rs.list())
 	})
+	mux.HandleFunc("GET /api/recording-clusters", func(w http.ResponseWriter, r *http.Request) {
+		threshold, _ := strconv.ParseFloat(r.URL.Query().Get("threshold"), 64)
+		writeJSON(w, http.StatusOK, rs.clusters(threshold))
+	})
 	mux.HandleFunc("GET /api/recordings/{id}/similar", func(w http.ResponseWriter, r *http.Request) {
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		results, err := rs.similar(r.PathValue("id"), limit)
