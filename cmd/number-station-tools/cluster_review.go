@@ -15,11 +15,11 @@ const (
 )
 
 type clusterReview struct {
-	ClusterID          string   `json:"cluster_id"`
-	Classification     string   `json:"classification"`
-	Notes              string   `json:"notes,omitempty"`
-	RecordingIDs       []string `json:"recording_ids"`
-	ReviewedAt         string   `json:"reviewed_at"`
+	ClusterID      string   `json:"cluster_id"`
+	Classification string   `json:"classification"`
+	Notes          string   `json:"notes,omitempty"`
+	RecordingIDs   []string `json:"recording_ids"`
+	ReviewedAt     string   `json:"reviewed_at"`
 }
 
 func validateClusterReviewClassification(v string) (string, error) {
