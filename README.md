@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.0
+## Current milestone: M4.1
 
 The application currently provides:
 
@@ -25,6 +25,8 @@ The application currently provides:
 - membership-stable cluster identifiers so reviews only attach to the reviewed member set
 - inline local playback for managed recordings with HTTP byte-range seeking
 - synchronized playback cursor across waveform and mini-spectrogram previews
+- click/drag seeking directly on waveform and mini-spectrogram previews
+- keyboard seeking on focused previews with arrow, Home and End keys
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -34,13 +36,14 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.0 does not
-transcode audio or send it to an external service.
+support determines whether a WAV/FLAC recording can be played; M4.1 does not
+transcode audio or send it to an external service. Waveform and spectrogram
+previews act as local seek surfaces for managed recordings.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_0.md](docs/M4_0.md) for the current scope.
+See [docs/M4_1.md](docs/M4_1.md) for the current scope.
 
 ## Run with Go
 
