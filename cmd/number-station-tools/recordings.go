@@ -10,25 +10,25 @@ import (
 )
 
 type recording struct {
-	ID                 string  `json:"id"`
-	ObservationID      string  `json:"observation_id"`
-	Path               string  `json:"path"`
-	Format             string  `json:"format"`
-	SizeBytes          int64   `json:"size_bytes,omitempty"`
-	DurationMS         int64   `json:"duration_ms,omitempty"`
-	SampleRateHz       int     `json:"sample_rate_hz,omitempty"`
-	Channels           int     `json:"channels,omitempty"`
-	SHA256             string  `json:"sha256,omitempty"`
-	Notes              string  `json:"notes,omitempty"`
-	Managed            bool    `json:"managed,omitempty"`
-	OriginalName       string  `json:"original_name,omitempty"`
-	Waveform           []uint8 `json:"waveform,omitempty"`
-	Frequency          []uint8 `json:"frequency,omitempty"`
-	FrequencyMaxHz     int     `json:"frequency_max_hz,omitempty"`
-	Spectrogram        []uint8 `json:"spectrogram,omitempty"`
-	SpectrogramTimeBins int    `json:"spectrogram_time_bins,omitempty"`
-	SpectrogramFreqBins int    `json:"spectrogram_frequency_bins,omitempty"`
-	SpectrogramMaxHz   int     `json:"spectrogram_max_hz,omitempty"`
+	ID                  string  `json:"id"`
+	ObservationID       string  `json:"observation_id"`
+	Path                string  `json:"path"`
+	Format              string  `json:"format"`
+	SizeBytes           int64   `json:"size_bytes,omitempty"`
+	DurationMS          int64   `json:"duration_ms,omitempty"`
+	SampleRateHz        int     `json:"sample_rate_hz,omitempty"`
+	Channels            int     `json:"channels,omitempty"`
+	SHA256              string  `json:"sha256,omitempty"`
+	Notes               string  `json:"notes,omitempty"`
+	Managed             bool    `json:"managed,omitempty"`
+	OriginalName        string  `json:"original_name,omitempty"`
+	Waveform            []uint8 `json:"waveform,omitempty"`
+	Frequency           []uint8 `json:"frequency,omitempty"`
+	FrequencyMaxHz      int     `json:"frequency_max_hz,omitempty"`
+	Spectrogram         []uint8 `json:"spectrogram,omitempty"`
+	SpectrogramTimeBins int     `json:"spectrogram_time_bins,omitempty"`
+	SpectrogramFreqBins int     `json:"spectrogram_frequency_bins,omitempty"`
+	SpectrogramMaxHz    int     `json:"spectrogram_max_hz,omitempty"`
 }
 
 type recordingData struct {
