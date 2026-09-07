@@ -36,8 +36,7 @@ func TestObservationRequiresExistingStation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = s.addObservation(observation{ID: "o1", StationID: "missing", FrequencyHz: 4625000})
-	if err == nil {
+	if err = s.addObservation(observation{ID: "o1", StationID: "missing", FrequencyHz: 4625000}); err == nil {
 		t.Fatal("expected missing station to be rejected")
 	}
 }
@@ -86,15 +85,8 @@ func TestScheduleValidation(t *testing.T) {
 }
 
 func TestNowNextIncludesActiveAndUpcoming(t *testing.T) {
-	s := &store{data: dataFile{
-		Stations: []station{{ID: "e11", Name: "E11 Oblique"}},
-		Schedules: []schedule{
-			{ID: "active", StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1}},
-			{ID: "next", StationID: "e11", FrequencyHz: 6925000, StartUTC: "21:00", EndUTC: "21:10", Weekdays: []int{1}},
-		},
-	}}
-	at := time.Date(2026, 9, 7, 20, 5, 0, 0, time.UTC) // Monday.
-	got := s.nowNext(at, 5)
+	s := &store{data: dataFile{Stations: []station{{ID: "e11", Name: "E11 Oblique"}}, Schedules: []schedule{{ID: "active", StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1}}, {ID: "next", StationID: "e11", FrequencyHz: 6925000, StartUTC: "21:00", EndUTC: "21:10", Weekdays: []int{1}}}}}
+	got := s.nowNext(time.Date(2026, 9, 7, 20, 5, 0, 0, time.UTC), 5)
 	if len(got.Now) != 1 || got.Now[0].ScheduleID != "active" {
 		t.Fatalf("unexpected active schedules: %#v", got.Now)
 	}
@@ -107,16 +99,70 @@ func TestNowNextIncludesActiveAndUpcoming(t *testing.T) {
 }
 
 func TestNowNextHandlesOvernightSchedule(t *testing.T) {
-	s := &store{data: dataFile{
-		Stations:  []station{{ID: "x", Name: "Night Station"}},
-		Schedules: []schedule{{ID: "night", StationID: "x", FrequencyHz: 1000, StartUTC: "23:55", EndUTC: "00:10", Weekdays: []int{1}}},
-	}}
-	at := time.Date(2026, 9, 8, 0, 5, 0, 0, time.UTC) // Tuesday, active from Monday.
-	got := s.nowNext(at, 5)
+	s := &store{data: dataFile{Stations: []station{{ID: "x", Name: "Night Station"}}, Schedules: []schedule{{ID: "night", StationID: "x", FrequencyHz: 1000, StartUTC: "23:55", EndUTC: "00:10", Weekdays: []int{1}}}}}
+	got := s.nowNext(time.Date(2026, 9, 8, 0, 5, 0, 0, time.UTC), 5)
 	if len(got.Now) != 1 || got.Now[0].ScheduleID != "night" {
 		t.Fatalf("overnight schedule not active: %#v", got.Now)
 	}
 	if got.Now[0].End.Day() != 8 {
 		t.Fatalf("overnight end should roll to next UTC day: %v", got.Now[0].End)
+	}
+}
+
+func TestUpdateAndDeleteSchedule(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data.json")
+	s, err := openStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.addStation(station{ID: "e11", Name: "E11"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.addSchedule(schedule{ID: "s1", StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.updateSchedule("s1", schedule{StationID: "e11", FrequencyHz: 6925000, StartUTC: "21:00", EndUTC: "21:10", Weekdays: []int{2}}); err != nil {
+		t.Fatal(err)
+	}
+	if s.data.Schedules[0].FrequencyHz != 6925000 || s.data.Schedules[0].ID != "s1" {
+		t.Fatalf("schedule update failed: %#v", s.data.Schedules[0])
+	}
+	if err := s.deleteSchedule("s1"); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.data.Schedules) != 0 {
+		t.Fatalf("schedule delete failed: %#v", s.data.Schedules)
+	}
+}
+
+func TestStationDeleteProtectsReferences(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data.json")
+	s, err := openStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.addStation(station{ID: "e11", Name: "E11"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.updateStation("e11", station{Name: "E11 Oblique", Aliases: []string{"E11"}}); err != nil {
+		t.Fatal(err)
+	}
+	if s.data.Stations[0].Name != "E11 Oblique" || s.data.Stations[0].ID != "e11" {
+		t.Fatalf("station update failed: %#v", s.data.Stations[0])
+	}
+	if err := s.addSchedule(schedule{ID: "s1", StationID: "e11", FrequencyHz: 5730000, StartUTC: "20:00", EndUTC: "20:15", Weekdays: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.deleteStation("e11"); err == nil {
+		t.Fatal("expected referenced station delete to fail")
+	}
+	if err := s.deleteSchedule("s1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.deleteStation("e11"); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.data.Stations) != 0 {
+		t.Fatalf("station delete failed: %#v", s.data.Stations)
 	}
 }

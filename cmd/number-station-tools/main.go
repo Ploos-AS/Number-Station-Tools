@@ -135,11 +135,59 @@ func (s *store) stationName(id string) string {
 	return id
 }
 
+func validateStation(v station) error {
+	if strings.TrimSpace(v.Name) == "" {
+		return errors.New("name is required")
+	}
+	return nil
+}
+
 func (s *store) addStation(v station) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := validateStation(v); err != nil {
+		return err
+	}
 	s.data.Stations = append(s.data.Stations, v)
 	return s.save()
+}
+
+func (s *store) updateStation(id string, v station) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := validateStation(v); err != nil {
+		return err
+	}
+	for i := range s.data.Stations {
+		if s.data.Stations[i].ID == id {
+			v.ID = id
+			s.data.Stations[i] = v
+			return s.save()
+		}
+	}
+	return errors.New("station does not exist")
+}
+
+func (s *store) deleteStation(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, obs := range s.data.Observations {
+		if obs.StationID == id {
+			return errors.New("station has observations")
+		}
+	}
+	for _, sc := range s.data.Schedules {
+		if sc.StationID == id {
+			return errors.New("station has schedules")
+		}
+	}
+	for i := range s.data.Stations {
+		if s.data.Stations[i].ID == id {
+			s.data.Stations = append(s.data.Stations[:i], s.data.Stations[i+1:]...)
+			return s.save()
+		}
+	}
+	return errors.New("station does not exist")
 }
 
 func (s *store) addObservation(v observation) error {
@@ -196,6 +244,37 @@ func (s *store) addSchedule(v schedule) error {
 	return s.save()
 }
 
+func (s *store) updateSchedule(id string, v schedule) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.stationExists(v.StationID) {
+		return errors.New("station does not exist")
+	}
+	if err := validateSchedule(v); err != nil {
+		return err
+	}
+	for i := range s.data.Schedules {
+		if s.data.Schedules[i].ID == id {
+			v.ID = id
+			s.data.Schedules[i] = v
+			return s.save()
+		}
+	}
+	return errors.New("schedule does not exist")
+}
+
+func (s *store) deleteSchedule(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Schedules {
+		if s.data.Schedules[i].ID == id {
+			s.data.Schedules = append(s.data.Schedules[:i], s.data.Schedules[i+1:]...)
+			return s.save()
+		}
+	}
+	return errors.New("schedule does not exist")
+}
+
 func isoWeekday(t time.Time) int {
 	if t.Weekday() == time.Sunday {
 		return 7
@@ -223,16 +302,7 @@ func scheduleOccurrence(v schedule, day time.Time, stationName string) occurrenc
 	if !end.After(start) {
 		end = end.Add(24 * time.Hour)
 	}
-	return occurrence{
-		ScheduleID:  v.ID,
-		StationID:   v.StationID,
-		StationName: stationName,
-		FrequencyHz: v.FrequencyHz,
-		Mode:        v.Mode,
-		Start:       start,
-		End:         end,
-		Notes:       v.Notes,
-	}
+	return occurrence{ScheduleID: v.ID, StationID: v.StationID, StationName: stationName, FrequencyHz: v.FrequencyHz, Mode: v.Mode, Start: start, End: end, Notes: v.Notes}
 }
 
 func (s *store) nowNext(at time.Time, nextLimit int) nowNextResponse {
@@ -275,6 +345,12 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func decodeJSON(r *http.Request, v any) error {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
+}
+
 func main() {
 	addr := getenv("NUMBER_STATION_TOOLS_ADDR", ":8080")
 	path := getenv("NUMBER_STATION_TOOLS_DATA", "/data/number-station-tools.json")
@@ -299,16 +375,36 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/stations", func(w http.ResponseWriter, r *http.Request) {
 		var v station
-		if json.NewDecoder(r.Body).Decode(&v) != nil || strings.TrimSpace(v.Name) == "" {
+		if decodeJSON(r, &v) != nil {
 			http.Error(w, "invalid station", 400)
 			return
 		}
 		v.ID = id()
-		if db.addStation(v) != nil {
-			http.Error(w, "store error", 500)
+		if err := db.addStation(v); err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
 		writeJSON(w, 201, v)
+	})
+	mux.HandleFunc("PUT /api/stations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var v station
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid station", 400)
+			return
+		}
+		if err := db.updateStation(r.PathValue("id"), v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		v.ID = r.PathValue("id")
+		writeJSON(w, 200, v)
+	})
+	mux.HandleFunc("DELETE /api/stations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if err := db.deleteStation(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), 409)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/observations", func(w http.ResponseWriter, _ *http.Request) {
 		db.mu.Lock()
@@ -317,7 +413,7 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/observations", func(w http.ResponseWriter, r *http.Request) {
 		var v observation
-		if json.NewDecoder(r.Body).Decode(&v) != nil || v.StationID == "" || v.FrequencyHz <= 0 {
+		if decodeJSON(r, &v) != nil || v.StationID == "" || v.FrequencyHz <= 0 {
 			http.Error(w, "invalid observation", 400)
 			return
 		}
@@ -338,7 +434,7 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/schedules", func(w http.ResponseWriter, r *http.Request) {
 		var v schedule
-		if json.NewDecoder(r.Body).Decode(&v) != nil {
+		if decodeJSON(r, &v) != nil {
 			http.Error(w, "invalid schedule", 400)
 			return
 		}
@@ -349,9 +445,27 @@ func main() {
 		}
 		writeJSON(w, 201, v)
 	})
-	mux.HandleFunc("GET /api/now-next", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, 200, db.nowNext(time.Now().UTC(), 5))
+	mux.HandleFunc("PUT /api/schedules/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var v schedule
+		if decodeJSON(r, &v) != nil {
+			http.Error(w, "invalid schedule", 400)
+			return
+		}
+		if err := db.updateSchedule(r.PathValue("id"), v); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		v.ID = r.PathValue("id")
+		writeJSON(w, 200, v)
 	})
+	mux.HandleFunc("DELETE /api/schedules/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if err := db.deleteSchedule(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /api/now-next", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, db.nowNext(time.Now().UTC(), 5)) })
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 	log.Printf("Number Station Tools listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
