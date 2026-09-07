@@ -6,18 +6,51 @@ import (
 	"strings"
 )
 
+const (
+	annotationTypeCallUp    = "call-up"
+	annotationTypeStationID = "station ID"
+	annotationTypeMessage   = "message"
+	annotationTypeTone      = "tone"
+	annotationTypeNoise     = "noise"
+	annotationTypeFade      = "fade"
+	annotationTypeOther     = "other"
+)
+
+var annotationTypes = map[string]struct{}{
+	annotationTypeCallUp:    {},
+	annotationTypeStationID: {},
+	annotationTypeMessage:   {},
+	annotationTypeTone:      {},
+	annotationTypeNoise:     {},
+	annotationTypeFade:      {},
+	annotationTypeOther:     {},
+}
+
 type recordingAnnotation struct {
 	ID          string `json:"id"`
 	RecordingID string `json:"recording_id"`
 	StartMS     int64  `json:"start_ms"`
 	EndMS       int64  `json:"end_ms,omitempty"`
+	Type        string `json:"type,omitempty"`
 	Label       string `json:"label"`
 	Notes       string `json:"notes,omitempty"`
 }
 
+func normalizeAnnotationType(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return annotationTypeOther
+	}
+	return value
+}
+
 func validateRecordingAnnotation(rec recording, annotation recordingAnnotation) error {
+	annotation.Type = normalizeAnnotationType(annotation.Type)
 	annotation.Label = strings.TrimSpace(annotation.Label)
 	annotation.Notes = strings.TrimSpace(annotation.Notes)
+	if _, ok := annotationTypes[annotation.Type]; !ok {
+		return errors.New("type must be call-up, station ID, message, tone, noise, fade, or other")
+	}
 	if annotation.Label == "" {
 		return errors.New("label is required")
 	}
@@ -60,6 +93,7 @@ func (s *recordingStore) listAnnotations(recordingID string) ([]recordingAnnotat
 	out := make([]recordingAnnotation, 0)
 	for _, annotation := range s.data.Annotations {
 		if annotation.RecordingID == recordingID {
+			annotation.Type = normalizeAnnotationType(annotation.Type)
 			out = append(out, annotation)
 		}
 	}
@@ -87,6 +121,7 @@ func (s *recordingStore) addAnnotation(recordingID string, annotation recordingA
 	}
 	annotation.ID = id()
 	annotation.RecordingID = recordingID
+	annotation.Type = normalizeAnnotationType(annotation.Type)
 	annotation.Label = strings.TrimSpace(annotation.Label)
 	annotation.Notes = strings.TrimSpace(annotation.Notes)
 	if err := validateRecordingAnnotation(*rec, annotation); err != nil {
@@ -114,6 +149,7 @@ func (s *recordingStore) updateAnnotation(recordingID, annotationID string, anno
 	}
 	annotation.ID = annotationID
 	annotation.RecordingID = recordingID
+	annotation.Type = normalizeAnnotationType(annotation.Type)
 	annotation.Label = strings.TrimSpace(annotation.Label)
 	annotation.Notes = strings.TrimSpace(annotation.Notes)
 	if err := validateRecordingAnnotation(*rec, annotation); err != nil {

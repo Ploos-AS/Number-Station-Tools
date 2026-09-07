@@ -2,12 +2,22 @@
   const list = document.querySelector("#recordings");
   if (!list) return;
 
+  const annotationTypes = ["call-up", "station ID", "message", "tone", "noise", "fade", "other"];
+
   function seconds(ms) {
     return (Number(ms || 0) / 1000).toFixed(3).replace(/\.000$/, "");
   }
 
   function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"})[c]);
+  }
+
+  function typeSlug(value) {
+    return String(value || "other").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "other";
+  }
+
+  function normalizedType(annotation) {
+    return annotation?.type || "other";
   }
 
   async function request(path, options = {}) {
@@ -22,7 +32,8 @@
     const when = interval
       ? `${seconds(annotation.start_ms)}–${seconds(annotation.end_ms)} s`
       : `${seconds(annotation.start_ms)} s`;
-    return annotation.notes ? `${annotation.label} · ${when} · ${annotation.notes}` : `${annotation.label} · ${when}`;
+    const base = `${normalizedType(annotation)} · ${annotation.label} · ${when}`;
+    return annotation.notes ? `${base} · ${annotation.notes}` : base;
   }
 
   function renderMarkers(item, recording, annotations) {
@@ -42,14 +53,15 @@
         const interval = end > start;
         const marker = document.createElement("button");
         marker.type = "button";
-        marker.className = interval ? "annotation-marker annotation-interval" : "annotation-marker annotation-point";
+        marker.className = `${interval ? "annotation-marker annotation-interval" : "annotation-marker annotation-point"} annotation-type-${typeSlug(normalizedType(annotation))}`;
         marker.dataset.annotationMarker = String(annotation.start_ms || 0);
+        marker.dataset.annotationType = normalizedType(annotation);
         marker.title = annotationTitle(annotation);
         marker.setAttribute("aria-label", `Seek to ${annotationTitle(annotation)}`);
         marker.style.left = `${startPct.toFixed(3)}%`;
         if (interval) marker.style.width = `${Math.max(0.35, (end - start) / durationMS * 100).toFixed(3)}%`;
         const label = document.createElement("span");
-        label.textContent = annotation.label;
+        label.textContent = `${normalizedType(annotation)}: ${annotation.label}`;
         marker.append(label);
         overlay.append(marker);
       });
@@ -73,11 +85,13 @@
           <label>End ms <input name="end_ms" type="number" min="0" step="1" placeholder="optional interval end"></label>
           <button type="button" data-annotation-current="end">End = current</button>
         </div>
+        <label>Type <select name="type">${annotationTypes.map(type => `<option value="${escapeHTML(type)}">${escapeHTML(type)}</option>`).join("")}</select></label>
         <label>Label <input name="label" maxlength="120" required placeholder="Call-up, station ID, message starts…"></label>
         <label>Notes <textarea name="notes" maxlength="2000" placeholder="Optional local note"></textarea></label>
         <div class="annotation-form-actions"><button type="submit" data-annotation-save>Save annotation</button><button type="button" data-annotation-cancel hidden>Cancel edit</button></div>
       </form>
-      <p class="annotation-help">Right-click a waveform/spectrogram position to save a Bookmark immediately. With a preview focused, press B to bookmark the current playback position.</p>
+      <div class="annotation-filter-row"><label>Show type <select data-annotation-filter><option value="">All types</option>${annotationTypes.map(type => `<option value="${escapeHTML(type)}">${escapeHTML(type)}</option>`).join("")}</select></label></div>
+      <p class="annotation-help">Right-click a waveform/spectrogram position to save an Other bookmark immediately. With a preview focused, press B to bookmark the current playback position.</p>
       <ul class="annotation-list"></ul>`;
     item.insertBefore(panel, actions || null);
 
@@ -86,12 +100,14 @@
     const annotationsList = panel.querySelector(".annotation-list");
     const saveButton = panel.querySelector("[data-annotation-save]");
     const cancelButton = panel.querySelector("[data-annotation-cancel]");
+    const filter = panel.querySelector("[data-annotation-filter]");
     let annotations = [];
 
     function resetForm(startMS = 0) {
       form.reset();
       form.elements.annotation_id.value = "";
       form.elements.start_ms.value = String(Math.max(0, Math.round(startMS)));
+      form.elements.type.value = "other";
       saveButton.textContent = "Save annotation";
       cancelButton.hidden = true;
     }
@@ -100,6 +116,7 @@
       form.elements.annotation_id.value = annotation.id;
       form.elements.start_ms.value = String(annotation.start_ms || 0);
       form.elements.end_ms.value = annotation.end_ms > annotation.start_ms ? String(annotation.end_ms) : "";
+      form.elements.type.value = normalizedType(annotation);
       form.elements.label.value = annotation.label || "";
       form.elements.notes.value = annotation.notes || "";
       saveButton.textContent = "Update annotation";
@@ -107,16 +124,26 @@
       form.elements.label.focus();
     }
 
+    function visibleAnnotations() {
+      const selected = filter.value;
+      return selected ? annotations.filter(annotation => normalizedType(annotation) === selected) : annotations;
+    }
+
+    function renderAnnotationViews() {
+      const visible = visibleAnnotations();
+      annotationsList.innerHTML = visible.length ? visible.map(annotation => {
+        const interval = annotation.end_ms > annotation.start_ms;
+        const when = interval ? `${seconds(annotation.start_ms)}–${seconds(annotation.end_ms)} s` : `${seconds(annotation.start_ms)} s`;
+        return `<li data-annotation-id="${escapeHTML(annotation.id)}" data-annotation-type="${escapeHTML(normalizedType(annotation))}"><button type="button" data-annotation-seek="${Number(annotation.start_ms)}">${escapeHTML(annotation.label)}</button><span class="annotation-type-badge annotation-type-${typeSlug(normalizedType(annotation))}">${escapeHTML(normalizedType(annotation))}</span><span>${escapeHTML(when)}</span>${annotation.notes ? `<span>${escapeHTML(annotation.notes)}</span>` : ""}<div class="annotation-row-actions"><button type="button" data-annotation-edit="${escapeHTML(annotation.id)}">Edit</button><button type="button" data-annotation-delete="${escapeHTML(annotation.id)}">Delete</button></div></li>`;
+      }).join("") : "<li>No annotations for this filter.</li>";
+      status.textContent = filter.value ? `${visible.length} of ${annotations.length} shown` : `${annotations.length} saved`;
+      renderMarkers(item, recording, visible);
+    }
+
     async function refreshAnnotations() {
       try {
         annotations = await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations`);
-        annotationsList.innerHTML = annotations.length ? annotations.map(annotation => {
-          const interval = annotation.end_ms > annotation.start_ms;
-          const when = interval ? `${seconds(annotation.start_ms)}–${seconds(annotation.end_ms)} s` : `${seconds(annotation.start_ms)} s`;
-          return `<li data-annotation-id="${escapeHTML(annotation.id)}"><button type="button" data-annotation-seek="${Number(annotation.start_ms)}">${escapeHTML(annotation.label)}</button><span>${escapeHTML(when)}</span>${annotation.notes ? `<span>${escapeHTML(annotation.notes)}</span>` : ""}<div class="annotation-row-actions"><button type="button" data-annotation-edit="${escapeHTML(annotation.id)}">Edit</button><button type="button" data-annotation-delete="${escapeHTML(annotation.id)}">Delete</button></div></li>`;
-        }).join("") : "<li>No annotations yet.</li>";
-        status.textContent = `${annotations.length} saved`;
-        renderMarkers(item, recording, annotations);
+        renderAnnotationViews();
       } catch (error) {
         status.textContent = error.message;
       }
@@ -127,7 +154,7 @@
       try {
         await request(`/api/recordings/${encodeURIComponent(recordingID)}/annotations`, {
           method: "POST",
-          body: JSON.stringify({start_ms: bounded, end_ms: 0, label: "Bookmark", notes: ""})
+          body: JSON.stringify({start_ms: bounded, end_ms: 0, type: "other", label: "Bookmark", notes: ""})
         });
         status.textContent = `Bookmark saved at ${seconds(bounded)} s`;
         await refreshAnnotations();
@@ -164,6 +191,8 @@
       createBookmarkAt(audio.currentTime * 1000);
     });
 
+    filter.addEventListener("change", renderAnnotationViews);
+
     panel.addEventListener("click", async event => {
       const target = event.target;
       if (target.dataset.annotationCurrent) {
@@ -199,6 +228,7 @@
       const payload = {
         start_ms: Number(data.get("start_ms") || 0),
         end_ms: Number(data.get("end_ms") || 0),
+        type: data.get("type") || "other",
         label: data.get("label"),
         notes: data.get("notes")
       };

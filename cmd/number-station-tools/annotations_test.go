@@ -34,14 +34,14 @@ func annotationTestStore(t *testing.T) (*store, *recordingStore) {
 
 func TestRecordingAnnotationCRUDAndPersistence(t *testing.T) {
 	_, rs := annotationTestStore(t)
-	created, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 1250, Label: "Call-up", Notes: "first voice"})
+	created, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 1250, Type: annotationTypeCallUp, Label: "Call-up", Notes: "first voice"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.ID == "" || created.RecordingID != "r1" {
+	if created.ID == "" || created.RecordingID != "r1" || created.Type != annotationTypeCallUp {
 		t.Fatalf("unexpected annotation: %#v", created)
 	}
-	interval, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 2000, EndMS: 4500, Label: "Message"})
+	interval, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 2000, EndMS: 4500, Type: annotationTypeMessage, Label: "Message"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,11 +49,11 @@ func TestRecordingAnnotationCRUDAndPersistence(t *testing.T) {
 	if err != nil || len(items) != 2 || items[0].ID != created.ID || items[1].ID != interval.ID {
 		t.Fatalf("annotations = %#v err=%v", items, err)
 	}
-	updated, err := rs.updateAnnotation("r1", created.ID, recordingAnnotation{StartMS: 1500, Label: "Station ID", Notes: "clear ID"})
+	updated, err := rs.updateAnnotation("r1", created.ID, recordingAnnotation{StartMS: 1500, Type: annotationTypeStationID, Label: "Station ID", Notes: "clear ID"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.ID != created.ID || updated.StartMS != 1500 || updated.Label != "Station ID" {
+	if updated.ID != created.ID || updated.StartMS != 1500 || updated.Type != annotationTypeStationID || updated.Label != "Station ID" {
 		t.Fatalf("updated = %#v", updated)
 	}
 	reopened, err := openRecordingStore(rs.path)
@@ -61,7 +61,7 @@ func TestRecordingAnnotationCRUDAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	persisted, err := reopened.listAnnotations("r1")
-	if err != nil || len(persisted) != 2 {
+	if err != nil || len(persisted) != 2 || persisted[0].Type != annotationTypeStationID || persisted[1].Type != annotationTypeMessage {
 		t.Fatalf("persisted = %#v err=%v", persisted, err)
 	}
 	if err := reopened.deleteAnnotation("r1", created.ID); err != nil {
@@ -75,13 +75,25 @@ func TestRecordingAnnotationCRUDAndPersistence(t *testing.T) {
 	}
 }
 
+func TestRecordingAnnotationDefaultsLegacyTypeToOther(t *testing.T) {
+	_, rs := annotationTestStore(t)
+	created, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 500, Label: "Legacy-style bookmark"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Type != annotationTypeOther {
+		t.Fatalf("default type = %q", created.Type)
+	}
+}
+
 func TestRecordingAnnotationValidation(t *testing.T) {
 	_, rs := annotationTestStore(t)
 	cases := []recordingAnnotation{
-		{StartMS: -1, Label: "bad"},
-		{StartMS: 9000, EndMS: 8000, Label: "bad"},
-		{StartMS: 11000, Label: "past end"},
-		{StartMS: 1000, Label: ""},
+		{StartMS: -1, Type: annotationTypeOther, Label: "bad"},
+		{StartMS: 9000, EndMS: 8000, Type: annotationTypeOther, Label: "bad"},
+		{StartMS: 11000, Type: annotationTypeOther, Label: "past end"},
+		{StartMS: 1000, Type: annotationTypeOther, Label: ""},
+		{StartMS: 1000, Type: "speech", Label: "invalid type"},
 	}
 	for _, test := range cases {
 		if _, err := rs.addAnnotation("r1", test); err == nil {
@@ -95,7 +107,7 @@ func TestRecordingAnnotationAPI(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAnnotationHandlers(mux, rs)
 
-	body, _ := json.Marshal(recordingAnnotation{StartMS: 1000, EndMS: 2500, Label: "Tone change", Notes: "local note"})
+	body, _ := json.Marshal(recordingAnnotation{StartMS: 1000, EndMS: 2500, Type: annotationTypeTone, Label: "Tone change", Notes: "local note"})
 	req := httptest.NewRequest(http.MethodPost, "/api/recordings/r1/annotations", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
@@ -106,6 +118,9 @@ func TestRecordingAnnotationAPI(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
+	if created.Type != annotationTypeTone {
+		t.Fatalf("POST type=%q", created.Type)
+	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/recordings/r1/annotations", nil)
 	w = httptest.NewRecorder()
@@ -114,7 +129,7 @@ func TestRecordingAnnotationAPI(t *testing.T) {
 		t.Fatalf("GET status=%d", w.Code)
 	}
 	var items []recordingAnnotation
-	if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil || len(items) != 1 || items[0].ID != created.ID {
+	if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil || len(items) != 1 || items[0].ID != created.ID || items[0].Type != annotationTypeTone {
 		t.Fatalf("GET annotations=%#v err=%v", items, err)
 	}
 
