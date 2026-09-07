@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M3.7
+## Current milestone: M3.8
 
 The application currently provides:
 
@@ -19,6 +19,8 @@ The application currently provides:
 - compact 64-bin frequency magnitude previews for managed PCM WAV recordings
 - compact 24×32 time-frequency mini-spectrograms for managed PCM WAV recordings
 - compact local signal fingerprints and deterministic recording similarity search
+- local fingerprint clustering with configurable similarity threshold
+- exact file-duplicate flagging from matching SHA-256 values inside clusters
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -26,7 +28,7 @@ The application currently provides:
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M3_7.md](docs/M3_7.md) for the current scope.
+See [docs/M3_8.md](docs/M3_8.md) for the current scope.
 
 ## Run with Go
 
@@ -58,6 +60,7 @@ Then open <http://localhost:8080>.
 - `GET /api/now-next`
 - `GET/POST /api/recordings`
 - `GET /api/recordings/{id}/similar`
+- `GET /api/recording-clusters?threshold=98`
 - `GET /api/observations/{id}/recordings`
 - `POST /api/audio`
 - `GET /api/recordings/{id}/file`
