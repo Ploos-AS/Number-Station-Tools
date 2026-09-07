@@ -29,6 +29,7 @@ type recording struct {
 	SpectrogramTimeBins int     `json:"spectrogram_time_bins,omitempty"`
 	SpectrogramFreqBins int     `json:"spectrogram_frequency_bins,omitempty"`
 	SpectrogramMaxHz    int     `json:"spectrogram_max_hz,omitempty"`
+	Fingerprint         []uint8 `json:"fingerprint,omitempty"`
 }
 
 type recordingData struct {
@@ -96,6 +97,9 @@ func validateRecording(v recording) error {
 	}
 	if len(v.Spectrogram) > 0 && len(v.Spectrogram) != v.SpectrogramTimeBins*v.SpectrogramFreqBins {
 		return errors.New("spectrogram dimensions do not match data")
+	}
+	if len(v.Fingerprint) > fingerprintBins {
+		return errors.New("fingerprint is too large")
 	}
 	if v.SHA256 != "" {
 		hash := strings.ToLower(strings.TrimSpace(v.SHA256))
@@ -169,6 +173,7 @@ func (s *recordingStore) update(db *store, recordingID string, v recording) erro
 				v.SpectrogramTimeBins = existing.SpectrogramTimeBins
 				v.SpectrogramFreqBins = existing.SpectrogramFreqBins
 				v.SpectrogramMaxHz = existing.SpectrogramMaxHz
+				v.Fingerprint = append([]uint8(nil), existing.Fingerprint...)
 			}
 			s.data.Recordings[i] = v
 			return s.save()
