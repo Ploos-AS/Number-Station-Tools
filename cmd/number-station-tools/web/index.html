@@ -31,10 +31,10 @@
     <section class="panel"><h2>Stations</h2><ul id="stations"></ul></section>
     <section class="panel"><div class="panel-head"><div><h2>Schedule archive</h2><p id="status" class="status">Loading…</p></div><input id="schedule-filter" type="search" placeholder="Filter station, frequency, mode, notes…"></div><ul id="schedules"></ul></section>
     <section class="panel"><div class="panel-head"><div><h2>Observation logbook</h2><p id="observation-status" class="status">Loading…</p></div><input id="observation-filter" type="search" placeholder="Filter station, frequency, signal, message, notes…"></div><ul id="observations"></ul></section>
-    <section class="panel"><div class="panel-head"><div><h2>Recording archive</h2><p id="recording-status" class="status">Loading…</p></div><input id="recording-filter" type="search" placeholder="Filter observation, path, format, checksum, notes…"></div><p class="status">Edit saved annotations from the list. Right-click waveform/spectrogram to create a Bookmark at that position, or press B on a focused preview to bookmark the current playback position.</p><ul id="recordings"></ul></section>
+    <section class="panel"><div class="panel-head"><div><h2>Recording archive</h2><p id="recording-status" class="status">Loading…</p></div><input id="recording-filter" type="search" placeholder="Filter observation, path, format, checksum, notes…"></div><p class="status">Classify saved annotations as call-up, station ID, message, tone, noise, fade or other. Filter a recording's annotation list and timeline markers by type while keeping all data local.</p><ul id="recordings"></ul></section>
     <section class="panel"><div class="panel-head"><div><h2>Fingerprint clusters</h2><p id="cluster-status" class="status">Scanning…</p></div><div class="two"><label>Threshold % <input id="cluster-threshold" type="number" min="1" max="100" step="0.1" value="98"></label><button id="cluster-refresh" type="button">Refresh</button></div></div><p class="status">Review a cluster as same transmission, same station, false positive, or duplicate capture. Reviews and notes stay local.</p><ul id="recording-clusters"></ul></section>
 
-    <footer>Number Station Tools M4.5 · annotation editing and direct timeline bookmarks</footer>
+    <footer>Number Station Tools M4.6 · categorized and filterable recording annotations</footer>
   </main>
   <script src="/app.js"></script>
   <script src="/upload.js"></script>
