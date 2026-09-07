@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -76,6 +77,10 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "cannot close audio file", http.StatusInternalServerError)
 			return
 		}
+		if err := validateAudioMagic(tmpPath, format); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := os.Rename(tmpPath, finalPath); err != nil {
 			http.Error(w, "cannot finalize audio file", http.StatusInternalServerError)
 			return
@@ -135,6 +140,33 @@ func audioFormatFromFilename(name string) (format string, ext string, err error)
 	default:
 		return "", "", errors.New("audio file must use .wav or .flac")
 	}
+}
+
+func validateAudioMagic(path, format string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.New("cannot inspect audio file")
+	}
+	defer f.Close()
+	buf := make([]byte, 12)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return errors.New("cannot inspect audio file")
+	}
+	buf = buf[:n]
+	switch format {
+	case "wav":
+		if len(buf) < 12 || !bytes.Equal(buf[:4], []byte("RIFF")) || !bytes.Equal(buf[8:12], []byte("WAVE")) {
+			return errors.New("file does not contain a WAV signature")
+		}
+	case "flac":
+		if len(buf) < 4 || !bytes.Equal(buf[:4], []byte("fLaC")) {
+			return errors.New("file does not contain a FLAC signature")
+		}
+	default:
+		return errors.New("unsupported audio format")
+	}
+	return nil
 }
 
 func safeDownloadName(rec recording) string {
