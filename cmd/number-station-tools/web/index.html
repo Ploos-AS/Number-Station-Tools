@@ -79,7 +79,7 @@
 
       <article>
         <h2>Upload managed audio</h2>
-        <p>Store a WAV/FLAC copy inside the appliance. Size and SHA-256 are calculated automatically.</p>
+        <p>Store a WAV/FLAC copy inside the appliance. Size, SHA-256 and supported local previews are calculated automatically.</p>
         <form id="audio-upload-form" enctype="multipart/form-data">
           <label>Observation <select name="observation_id" id="audio-observation-select" required></select></label>
           <label>WAV/FLAC file <input name="file" type="file" accept=".wav,.flac,audio/wav,audio/flac" required></label>
@@ -107,10 +107,11 @@
       <ul id="recordings"></ul>
     </section>
 
-    <footer>Number Station Tools M3.4 · managed PCM WAV uploads include compact local waveform previews</footer>
+    <footer>Number Station Tools M3.5 · managed PCM WAV uploads include waveform and frequency previews</footer>
   </main>
   <script src="/app.js"></script>
   <script src="/upload.js"></script>
   <script src="/waveform.js"></script>
+  <script src="/frequency.js"></script>
 </body>
 </html>
