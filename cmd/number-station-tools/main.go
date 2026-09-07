@@ -434,7 +434,12 @@ func decodeJSON(r *http.Request, v any) error {
 func main() {
 	addr := getenv("NUMBER_STATION_TOOLS_ADDR", ":8080")
 	path := getenv("NUMBER_STATION_TOOLS_DATA", "/data/number-station-tools.json")
+	recordingPath := getenv("NUMBER_STATION_TOOLS_RECORDINGS", "/data/recordings.json")
 	db, err := openStore(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rs, err := openRecordingStore(recordingPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -443,6 +448,7 @@ func main() {
 		log.Fatal(err)
 	}
 	mux := http.NewServeMux()
+	registerRecordingHandlers(mux, db, rs)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, 200, healthResponse{"ok", time.Now().UTC().Format(time.RFC3339)})
 	})
@@ -526,8 +532,13 @@ func main() {
 		writeJSON(w, 200, v)
 	})
 	mux.HandleFunc("DELETE /api/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := db.deleteObservation(r.PathValue("id")); err != nil {
-			http.Error(w, err.Error(), 404)
+		observationID := r.PathValue("id")
+		if rs.observationReferenced(observationID) {
+			http.Error(w, "observation has recordings", http.StatusConflict)
+			return
+		}
+		if err := db.deleteObservation(observationID); err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
