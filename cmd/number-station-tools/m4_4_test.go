@@ -39,7 +39,7 @@ func TestM44VisualAnnotationMarkersEmbedded(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(string(index), "Number Station Tools M4.4") {
-		t.Fatal("index does not identify M4.4")
+	if !strings.Contains(string(index), "annotations.js") {
+		t.Fatal("index does not load annotation marker UI")
 	}
 }
