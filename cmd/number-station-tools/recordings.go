@@ -33,8 +33,8 @@ type recording struct {
 }
 
 type recordingData struct {
-	Recordings     []recording          `json:"recordings"`
-	ClusterReviews []clusterReview      `json:"cluster_reviews,omitempty"`
+	Recordings     []recording           `json:"recordings"`
+	ClusterReviews []clusterReview       `json:"cluster_reviews,omitempty"`
 	Annotations    []recordingAnnotation `json:"annotations,omitempty"`
 }
 
