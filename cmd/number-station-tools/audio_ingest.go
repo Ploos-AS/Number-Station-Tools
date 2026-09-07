@@ -131,7 +131,7 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 }
 
 func audioFormatFromFilename(name string) (format string, ext string, err error) {
-	ext := strings.ToLower(filepath.Ext(filepath.Base(name)))
+	ext = strings.ToLower(filepath.Ext(filepath.Base(name)))
 	switch ext {
 	case ".wav":
 		return "wav", ".wav", nil
