@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -38,7 +39,7 @@ func testWaveWAV() []byte {
 
 func TestWAVWaveformPreview(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "preview.wav")
-	if err := osWriteFile(path, testWaveWAV()); err != nil {
+	if err := os.WriteFile(path, testWaveWAV(), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	preview, err := buildWaveformPreview(path, "wav")
@@ -103,8 +104,4 @@ func TestFLACWaveformPreviewIsOptional(t *testing.T) {
 	if preview != nil {
 		t.Fatal("compressed FLAC should not expose a synthetic waveform without decoding")
 	}
-}
-
-func osWriteFile(path string, data []byte) error {
-	return os.WriteFile(path, data, 0o600)
 }
