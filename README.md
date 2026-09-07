@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M3.8
+## Current milestone: M3.9
 
 The application currently provides:
 
@@ -21,14 +21,20 @@ The application currently provides:
 - compact local signal fingerprints and deterministic recording similarity search
 - local fingerprint clustering with configurable similarity threshold
 - exact file-duplicate flagging from matching SHA-256 values inside clusters
+- persistent local cluster review/classification with notes and UTC review time
+- membership-stable cluster identifiers so reviews only attach to the reviewed member set
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
 
+Cluster reviews support `same transmission`, `same station`, `false positive`,
+and `duplicate capture`. They are stored locally alongside recording metadata and
+do not require AI, an API key, or an external service.
+
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M3_8.md](docs/M3_8.md) for the current scope.
+See [docs/M3_9.md](docs/M3_9.md) for the current scope.
 
 ## Run with Go
 
@@ -36,7 +42,7 @@ For a host run, select writable data paths:
 
 ```sh
 NUMBER_STATION_TOOLS_DATA=./number-station-tools.json \
-NUMBER_STATION_TOOLS_RECORDINGS=./recordings.json \
+NUMBER_STATION_TOOLS_RECORDINGS_DATA=./recordings.json \
 NUMBER_STATION_TOOLS_AUDIO_DIR=./audio \
   go run ./cmd/number-station-tools
 ```
@@ -61,6 +67,8 @@ Then open <http://localhost:8080>.
 - `GET/POST /api/recordings`
 - `GET /api/recordings/{id}/similar`
 - `GET /api/recording-clusters?threshold=98`
+- `PUT /api/recording-clusters/{id}/review?threshold=98`
+- `DELETE /api/recording-clusters/{id}/review`
 - `GET /api/observations/{id}/recordings`
 - `POST /api/audio`
 - `GET /api/recordings/{id}/file`
@@ -75,6 +83,7 @@ Number Station Tools is intended to grow into a workbench for:
 - message and group transcription
 - WAV/FLAC recording archive
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
+- human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
 - local-first archival and search
