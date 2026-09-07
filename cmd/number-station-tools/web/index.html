@@ -11,7 +11,7 @@
     <header>
       <p class="eyebrow">Ploos-AS</p>
       <h1>Number Station Tools</h1>
-      <p class="lede">Local-first numbers-station schedules, frequencies and monitoring notes.</p>
+      <p class="lede">Local-first numbers-station schedules, frequencies and monitoring logbook.</p>
     </header>
 
     <section class="panel">
@@ -46,6 +46,21 @@
           <div class="two"><button type="submit">Save schedule</button><button id="schedule-cancel" type="button">Cancel edit</button></div>
         </form>
       </article>
+
+      <article>
+        <h2 id="observation-form-title">Log observation</h2>
+        <form id="observation-form">
+          <input type="hidden" name="id">
+          <label>Station <select name="station_id" id="observation-station-select" required></select></label>
+          <label>Linked schedule <select name="schedule_id" id="observation-schedule-select"><option value="">None / unscheduled</option></select></label>
+          <label>Heard at UTC <input name="heard_at" type="datetime-local"></label>
+          <label>Frequency Hz <input name="frequency_hz" type="number" min="1" required></label>
+          <div class="two"><label>Mode <input name="mode" placeholder="USB"></label><label>Signal <input name="signal" placeholder="S7 / SINPO"></label></div>
+          <label>Message / transcription <textarea name="message" placeholder="Groups, call-up, transcription…"></textarea></label>
+          <label>Notes <textarea name="notes" placeholder="Receiver, antenna, fading, context…"></textarea></label>
+          <div class="two"><button type="submit">Save observation</button><button id="observation-cancel" type="button">Cancel edit</button></div>
+        </form>
+      </article>
     </section>
 
     <section class="panel">
@@ -58,7 +73,12 @@
       <ul id="schedules"></ul>
     </section>
 
-    <footer>Number Station Tools M2.2 · all schedule times are UTC</footer>
+    <section class="panel">
+      <div class="panel-head"><div><h2>Observation logbook</h2><p id="observation-status" class="status">Loading…</p></div><input id="observation-filter" type="search" placeholder="Filter station, frequency, signal, message, notes…"></div>
+      <ul id="observations"></ul>
+    </section>
+
+    <footer>Number Station Tools M2.3 · schedule and observation times are UTC</footer>
   </main>
   <script src="/app.js"></script>
 </body>
