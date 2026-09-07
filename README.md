@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.4
+## Current milestone: M4.5
 
 The application currently provides:
 
@@ -30,6 +30,9 @@ The application currently provides:
 - temporary A-B loop regions with repeated playback and highlighted selection
 - persistent recording point bookmarks and timestamp-interval annotations
 - visual point/interval annotation markers directly on waveform and spectrogram previews
+- edit existing annotations while preserving their stable annotation IDs
+- direct Bookmark creation by right-clicking a waveform/spectrogram position
+- keyboard Bookmark creation with `B` on a focused seek preview
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -39,16 +42,15 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.4 does not
-transcode audio or send it to an external service. Waveform and spectrogram
-previews act as local seek surfaces, A-B loop regions remain browser-session
-state, and saved timestamp annotations persist in `recordings.json` and are drawn
-directly on the previews when recording duration is known.
+support determines whether a WAV/FLAC recording can be played; M4.5 does not
+transcode audio or send it to an external service. Saved timestamp annotations
+persist in `recordings.json`, can be edited through the existing API, and can be
+created directly from the local waveform/spectrogram timeline when duration is known.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_4.md](docs/M4_4.md) for the current scope.
+See [docs/M4_5.md](docs/M4_5.md) for the current scope.
 
 ## Run with Go
 
