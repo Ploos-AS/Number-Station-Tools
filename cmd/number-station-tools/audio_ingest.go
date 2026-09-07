@@ -132,27 +132,44 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 		writeJSON(w, http.StatusCreated, rec)
 	})
 	mux.HandleFunc("GET /api/recordings/{id}/file", func(w http.ResponseWriter, r *http.Request) {
-		rec, ok := rs.byID(r.PathValue("id"))
+		rec, path, ok := managedAudioPath(w, rs, audioDir, r.PathValue("id"))
 		if !ok {
-			http.Error(w, "recording does not exist", http.StatusNotFound)
-			return
-		}
-		if !rec.Managed {
-			http.Error(w, "recording is external metadata only", http.StatusConflict)
-			return
-		}
-		path := filepath.Join(audioDir, filepath.Base(rec.Path))
-		if _, err := os.Stat(path); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				http.Error(w, "managed audio file is missing", http.StatusNotFound)
-				return
-			}
-			http.Error(w, "cannot read managed audio file", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", safeDownloadName(rec)))
 		http.ServeFile(w, r, path)
 	})
+	mux.HandleFunc("GET /api/recordings/{id}/stream", func(w http.ResponseWriter, r *http.Request) {
+		rec, path, ok := managedAudioPath(w, rs, audioDir, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", safeDownloadName(rec)))
+		w.Header().Set("Accept-Ranges", "bytes")
+		http.ServeFile(w, r, path)
+	})
+}
+
+func managedAudioPath(w http.ResponseWriter, rs *recordingStore, audioDir, recordingID string) (recording, string, bool) {
+	rec, ok := rs.byID(recordingID)
+	if !ok {
+		http.Error(w, "recording does not exist", http.StatusNotFound)
+		return recording{}, "", false
+	}
+	if !rec.Managed {
+		http.Error(w, "recording is external metadata only", http.StatusConflict)
+		return recording{}, "", false
+	}
+	path := filepath.Join(audioDir, filepath.Base(rec.Path))
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "managed audio file is missing", http.StatusNotFound)
+			return recording{}, "", false
+		}
+		http.Error(w, "cannot read managed audio file", http.StatusInternalServerError)
+		return recording{}, "", false
+	}
+	return rec, path, true
 }
 
 func audioFormatFromFilename(name string) (format string, ext string, err error) {

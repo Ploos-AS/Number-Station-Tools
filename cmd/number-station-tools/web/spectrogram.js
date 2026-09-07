@@ -3,10 +3,10 @@
   if (!list) return;
 
   function renderGrid(recording) {
-    const values = recording.spectrogram;
-    const rows = Number(recording.spectrogram_frequency_bins || 0);
-    const cols = Number(recording.spectrogram_time_bins || 0);
-    if (!Array.isArray(values) || !rows || !cols || values.length !== rows * cols) return "";
+    const values = window.NumberStationPreview?.bytes(recording?.spectrogram) || [];
+    const rows = Number(recording?.spectrogram_frequency_bins || 0);
+    const cols = Number(recording?.spectrogram_time_bins || 0);
+    if (!values.length || !rows || !cols || values.length !== rows * cols) return "";
     const cells = [];
     for (let f = rows - 1; f >= 0; f--) {
       for (let t = 0; t < cols; t++) {
@@ -36,16 +36,16 @@
       if (!button) return;
       const id = button.dataset.editRecording || button.dataset.deleteRecording;
       const recording = byID.get(id);
-      if (!recording?.spectrogram?.length) return;
+      const markup = renderGrid(recording);
+      if (!markup) return;
       const actions = item.querySelector(".actions");
       const wrapper = document.createElement("div");
-      wrapper.className = "spectrogram-wrap";
-      wrapper.innerHTML = renderGrid(recording);
+      wrapper.className = "spectrogram-wrap playback-track";
+      wrapper.innerHTML = markup;
       item.insertBefore(wrapper, actions || null);
     });
   }
 
-  const observer = new MutationObserver(render);
-  observer.observe(list, {childList: true, subtree: true});
+  new MutationObserver(render).observe(list, {childList: true, subtree: true});
   render();
 })();
