@@ -6,16 +6,14 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   qualify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -23,16 +21,8 @@ jobs:
           go-version: '1.25.x'
           cache: false
 
-      - name: Format branch
-        run: |
-          gofmt -w ./cmd
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add ./cmd
-            git commit -m "M3.9: gofmt"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
+      - name: Check formatting
+        run: test -z "$(gofmt -l ./cmd)"
 
       - name: Test
         run: go test ./...
