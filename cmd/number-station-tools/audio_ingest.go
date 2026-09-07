@@ -119,12 +119,22 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 	})
 	mux.HandleFunc("GET /api/recordings/{id}/file", func(w http.ResponseWriter, r *http.Request) {
 		rec, ok := rs.byID(r.PathValue("id"))
-		if !ok { http.Error(w, "recording does not exist", http.StatusNotFound); return }
-		if !rec.Managed { http.Error(w, "recording is external metadata only", http.StatusConflict); return }
+		if !ok {
+			http.Error(w, "recording does not exist", http.StatusNotFound)
+			return
+		}
+		if !rec.Managed {
+			http.Error(w, "recording is external metadata only", http.StatusConflict)
+			return
+		}
 		path := filepath.Join(audioDir, filepath.Base(rec.Path))
 		if _, err := os.Stat(path); err != nil {
-			if errors.Is(err, os.ErrNotExist) { http.Error(w, "managed audio file is missing", http.StatusNotFound); return }
-			http.Error(w, "cannot read managed audio file", http.StatusInternalServerError); return
+			if errors.Is(err, os.ErrNotExist) {
+				http.Error(w, "managed audio file is missing", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "cannot read managed audio file", http.StatusInternalServerError)
+			return
 		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", safeDownloadName(rec)))
 		http.ServeFile(w, r, path)
@@ -133,20 +143,47 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 
 func audioFormatFromFilename(name string) (format string, ext string, err error) {
 	ext = strings.ToLower(filepath.Ext(filepath.Base(name)))
-	switch ext { case ".wav": return "wav", ".wav", nil; case ".flac": return "flac", ".flac", nil; default: return "", "", errors.New("audio file must use .wav or .flac") }
+	switch ext {
+	case ".wav":
+		return "wav", ".wav", nil
+	case ".flac":
+		return "flac", ".flac", nil
+	default:
+		return "", "", errors.New("audio file must use .wav or .flac")
+	}
 }
 
 func validateAudioMagic(path, format string) error {
-	f, err := os.Open(path); if err != nil { return errors.New("cannot inspect audio file") }; defer f.Close()
-	buf := make([]byte, 12); n, err := io.ReadFull(f, buf); if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) { return errors.New("cannot inspect audio file") }; buf = buf[:n]
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.New("cannot inspect audio file")
+	}
+	defer f.Close()
+	buf := make([]byte, 12)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return errors.New("cannot inspect audio file")
+	}
+	buf = buf[:n]
 	switch format {
-	case "wav": if len(buf) < 12 || !bytes.Equal(buf[:4], []byte("RIFF")) || !bytes.Equal(buf[8:12], []byte("WAVE")) { return errors.New("file does not contain a WAV signature") }
-	case "flac": if len(buf) < 4 || !bytes.Equal(buf[:4], []byte("fLaC")) { return errors.New("file does not contain a FLAC signature") }
-	default: return errors.New("unsupported audio format")
+	case "wav":
+		if len(buf) < 12 || !bytes.Equal(buf[:4], []byte("RIFF")) || !bytes.Equal(buf[8:12], []byte("WAVE")) {
+			return errors.New("file does not contain a WAV signature")
+		}
+	case "flac":
+		if len(buf) < 4 || !bytes.Equal(buf[:4], []byte("fLaC")) {
+			return errors.New("file does not contain a FLAC signature")
+		}
+	default:
+		return errors.New("unsupported audio format")
 	}
 	return nil
 }
 
 func safeDownloadName(rec recording) string {
-	name := filepath.Base(strings.TrimSpace(rec.OriginalName)); if name == "." || name == "" { name = filepath.Base(rec.Path) }; return name
+	name := filepath.Base(strings.TrimSpace(rec.OriginalName))
+	if name == "." || name == "" {
+		name = filepath.Base(rec.Path)
+	}
+	return name
 }
