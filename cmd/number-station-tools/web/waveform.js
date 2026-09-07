@@ -13,9 +13,9 @@
       const x = Math.round(i * step * 100) / 100;
       const y = Math.round((mid - amplitude / 2) * 100) / 100;
       const w = Math.max(1, Math.ceil(step));
-      return `<rect x="${x}" y="${y}" width="${w}" height="${amplitude}" rx="0.5"></rect>`;
+      return `<rect x="${x}" y="${y}" width="${w}" height="${amplitude}" rx="0.5" fill="currentColor"></rect>`;
     }).join("");
-    return `<svg class="waveform-preview" viewBox="0 0 ${width} ${height}" role="img" aria-label="Audio amplitude preview" preserveAspectRatio="none">${bars}</svg>`;
+    return `<svg class="waveform-preview" style="display:block;width:100%;height:64px;opacity:.8" viewBox="0 0 ${width} ${height}" role="img" aria-label="Audio amplitude preview" preserveAspectRatio="none">${bars}</svg>`;
   }
 
   async function render() {
@@ -38,6 +38,7 @@
       const actions = item.querySelector(".actions");
       const wrapper = document.createElement("div");
       wrapper.className = "waveform-wrap";
+      wrapper.style.margin = "0.5rem 0";
       wrapper.innerHTML = svgFor(recording.waveform);
       item.insertBefore(wrapper, actions || null);
     });
