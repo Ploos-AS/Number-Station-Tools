@@ -44,6 +44,13 @@ li span { margin-top: 4px; color: #8ea39c; font-size: .87rem; }
 .interactive-seek { cursor: ew-resize; touch-action: none; outline: none; }
 .interactive-seek:hover { border-color: #8dd6bf; }
 .interactive-seek:focus-visible { box-shadow: 0 0 0 2px #8dd6bf; }
+.annotation-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.annotation-marker { position: absolute; top: 0; bottom: 0; min-width: 3px; width: 3px; padding: 0; border: 0; border-radius: 0; background: #f0c674; color: #0d1010; pointer-events: auto; transform: translateX(-1px); }
+.annotation-marker:hover, .annotation-marker:focus-visible { background: #fff0ad; outline: 2px solid #edf2ef; outline-offset: -2px; }
+.annotation-marker span { position: absolute; top: 3px; left: 4px; display: none; max-width: 180px; padding: 3px 5px; border-radius: 4px; background: rgba(13,16,16,.92); color: #edf2ef; font-size: .7rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.annotation-marker:hover span, .annotation-marker:focus-visible span { display: block; }
+.annotation-interval { min-width: 5px; opacity: .62; border-left: 2px solid #f0c674; border-right: 2px solid #f0c674; background: rgba(240,198,116,.2); transform: none; }
+.annotation-interval:hover, .annotation-interval:focus-visible { background: rgba(255,240,173,.35); opacity: 1; }
 .recording-player { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 12px 0 4px; }
 .recording-player audio { width: 100%; min-width: 0; }
 .playback-status { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; color: #8dd6bf; }
