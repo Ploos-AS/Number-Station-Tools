@@ -39,6 +39,9 @@ li span { margin-top: 4px; color: #8ea39c; font-size: .87rem; }
 .spectrogram-preview i { display: block; min-height: 3px; background: #8dd6bf; border-radius: 1px; }
 .playback-track { position: relative; overflow: hidden; }
 .playback-track::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--playback-progress); width: 2px; background: #edf2ef; opacity: .8; pointer-events: none; transform: translateX(-1px); }
+.interactive-seek { cursor: ew-resize; touch-action: none; outline: none; }
+.interactive-seek:hover { border-color: #8dd6bf; }
+.interactive-seek:focus-visible { box-shadow: 0 0 0 2px #8dd6bf; }
 .recording-player { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 12px 0 4px; }
 .recording-player audio { width: 100%; min-width: 0; }
 .playback-status { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; color: #8dd6bf; }
