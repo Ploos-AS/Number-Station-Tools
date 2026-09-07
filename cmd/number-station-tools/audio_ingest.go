@@ -91,6 +91,11 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 			http.Error(w, "cannot build waveform preview: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		frequency, err := buildFrequencyPreview(tmpPath, format)
+		if err != nil {
+			http.Error(w, "cannot build frequency preview: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := os.Rename(tmpPath, finalPath); err != nil {
 			http.Error(w, "cannot finalize audio file", http.StatusInternalServerError)
 			return
@@ -98,19 +103,21 @@ func registerAudioHandlers(mux *http.ServeMux, db *store, rs *recordingStore, au
 		cleanup = false
 
 		rec := recording{
-			ID:            recordingID,
-			ObservationID: observationID,
-			Path:          filepath.ToSlash(filepath.Join("audio", filename)),
-			Format:        format,
-			SizeBytes:     size,
-			DurationMS:    metadata.DurationMS,
-			SampleRateHz:  metadata.SampleRateHz,
-			Channels:      metadata.Channels,
-			SHA256:        hex.EncodeToString(h.Sum(nil)),
-			Notes:         strings.TrimSpace(r.FormValue("notes")),
-			Managed:       true,
-			OriginalName:  filepath.Base(header.Filename),
-			Waveform:      waveform,
+			ID:             recordingID,
+			ObservationID:  observationID,
+			Path:           filepath.ToSlash(filepath.Join("audio", filename)),
+			Format:         format,
+			SizeBytes:      size,
+			DurationMS:     metadata.DurationMS,
+			SampleRateHz:   metadata.SampleRateHz,
+			Channels:       metadata.Channels,
+			SHA256:         hex.EncodeToString(h.Sum(nil)),
+			Notes:          strings.TrimSpace(r.FormValue("notes")),
+			Managed:        true,
+			OriginalName:   filepath.Base(header.Filename),
+			Waveform:       waveform,
+			Frequency:      frequency.Bins,
+			FrequencyMaxHz: frequency.MaxHz,
 		}
 		if err := rs.add(db, rec); err != nil {
 			_ = os.Remove(finalPath)
