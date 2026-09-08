@@ -14,7 +14,7 @@ func TestM50PortableArchiveEmbedded(t *testing.T) {
 	for _, want := range []string{
 		"/api/recording-archive",
 		"Export full archive",
-		"manifest.json",
+		"Portable recording archive",
 		"managed WAV/FLAC",
 	} {
 		if !strings.Contains(html, want) {
