@@ -48,7 +48,7 @@ func TestAnnotationTransferExportAndSafeImport(t *testing.T) {
 func TestAnnotationTransferRejectsUnsafePathOnlyMatch(t *testing.T) {
 	_, target := annotationTestStore(t)
 	bundle := annotationTransferBundle{Version: annotationTransferVersion, Items: []annotationTransferItem{{
-		Recording: annotationTransferRecording{ID: "wrong-id", Path: target.data.Recordings[0].Path},
+		Recording:  annotationTransferRecording{ID: "wrong-id", Path: target.data.Recordings[0].Path},
 		Annotation: recordingAnnotation{StartMS: 100, Type: annotationTypeOther, Label: "bookmark"},
 	}}}
 	result, err := target.importAnnotations(bundle)

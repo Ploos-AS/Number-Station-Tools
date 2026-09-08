@@ -31,9 +31,9 @@ type annotationTransferBundle struct {
 }
 
 type annotationImportResult struct {
-	Imported  int `json:"imported"`
+	Imported   int `json:"imported"`
 	Duplicates int `json:"duplicates"`
-	Unmatched int `json:"unmatched"`
+	Unmatched  int `json:"unmatched"`
 }
 
 func (s *recordingStore) exportAnnotations() annotationTransferBundle {
@@ -51,7 +51,7 @@ func (s *recordingStore) exportAnnotations() annotationTransferBundle {
 		}
 		annotation.Type = normalizeAnnotationType(annotation.Type)
 		items = append(items, annotationTransferItem{
-			Recording: annotationTransferRecording{ID: rec.ID, Path: rec.Path, SHA256: rec.SHA256, DurationMS: rec.DurationMS},
+			Recording:  annotationTransferRecording{ID: rec.ID, Path: rec.Path, SHA256: rec.SHA256, DurationMS: rec.DurationMS},
 			Annotation: annotation,
 		})
 	}
