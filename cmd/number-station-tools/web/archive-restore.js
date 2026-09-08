@@ -3,9 +3,18 @@
   const input = document.querySelector("#recording-archive-import-file");
   const status = document.querySelector("#recording-archive-import-status");
   const planButton = document.querySelector("#recording-archive-plan");
-  const selectedButton = document.querySelector("#recording-archive-restore-selected");
   const results = document.querySelector("#recording-archive-plan-results");
-  if (!form || !input || !status || !planButton || !selectedButton || !results) return;
+  if (!form || !input || !status || !planButton || !results) return;
+
+  let selectedButton = document.querySelector("#recording-archive-restore-selected");
+  if (!selectedButton) {
+    selectedButton = document.createElement("button");
+    selectedButton.type = "button";
+    selectedButton.id = "recording-archive-restore-selected";
+    selectedButton.textContent = "Restore selected";
+    selectedButton.disabled = true;
+    planButton.insertAdjacentElement("afterend", selectedButton);
+  }
 
   const selectedFile = () => input.files?.[0] || null;
 
