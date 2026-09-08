@@ -52,6 +52,14 @@ func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordin
 		writeJSON(w, http.StatusOK, receipts.list(limit))
 	})
 
+	mux.HandleFunc("GET /api/recording-archive/receipts/verify", func(w http.ResponseWriter, _ *http.Request) {
+		if receiptStoreErr != nil {
+			http.Error(w, "restore receipt store is unavailable", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, receipts.verify())
+	})
+
 	mux.HandleFunc("POST /api/recording-archive/plan", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
 		plan, err := planPortableRestore(r.Body, db, rs, audioDir)
