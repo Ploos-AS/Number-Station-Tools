@@ -11,11 +11,15 @@ import (
 
 type portableSelectiveRestoreResult struct {
 	portableRestoreResult
-	Selected        int `json:"selected"`
+	Selected         int `json:"selected"`
 	SkippedByPolicy int `json:"skipped_by_policy"`
 }
 
 func restorePortableArchiveSelected(src io.Reader, db *store, rs *recordingStore, audioDir string, selectedIDs []string) (portableSelectiveRestoreResult, error) {
+	return restorePortableArchiveSelectedWithPlanToken(src, db, rs, audioDir, selectedIDs, "")
+}
+
+func restorePortableArchiveSelectedWithPlanToken(src io.Reader, db *store, rs *recordingStore, audioDir string, selectedIDs []string, expectedPlanToken string) (portableSelectiveRestoreResult, error) {
 	selected := make(map[string]struct{}, len(selectedIDs))
 	for _, raw := range selectedIDs {
 		id := strings.TrimSpace(raw)
@@ -36,6 +40,30 @@ func restorePortableArchiveSelected(src io.Reader, db *store, rs *recordingStore
 		return portableSelectiveRestoreResult{}, err
 	}
 	defer os.RemoveAll(staged.dir)
+
+	if expectedPlanToken != "" {
+		if len(expectedPlanToken) != 64 {
+			return portableSelectiveRestoreResult{}, errors.New("invalid restore plan token")
+		}
+		currentPlan, err := planStagedPortableRestore(staged, db, rs, audioDir)
+		if err != nil {
+			return portableSelectiveRestoreResult{}, err
+		}
+		if currentPlan.PlanToken != strings.ToLower(strings.TrimSpace(expectedPlanToken)) {
+			return portableSelectiveRestoreResult{}, errors.New("restore plan changed; plan the archive again before restoring")
+		}
+		allowed := make(map[string]struct{})
+		for _, entry := range currentPlan.Entries {
+			if entry.Action == "import" {
+				allowed[entry.RecordingID] = struct{}{}
+			}
+		}
+		for id := range selected {
+			if _, ok := allowed[id]; !ok {
+				return portableSelectiveRestoreResult{}, fmt.Errorf("selected recording %s is not an import candidate in the approved plan", id)
+			}
+		}
+	}
 
 	result := portableSelectiveRestoreResult{Selected: len(selected)}
 	seenIDs := make(map[string]struct{}, len(staged.manifest.Items))
