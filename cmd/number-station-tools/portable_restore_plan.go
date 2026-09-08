@@ -39,20 +39,41 @@ type portablePlanFileFingerprint struct {
 	SHA256 string `json:"sha256"`
 }
 
-type portablePlanFingerprint struct {
-	Manifest recordingBundleManifest        `json:"manifest"`
-	Files    []portablePlanFileFingerprint `json:"files"`
-	Plan     portableRestorePlan           `json:"plan"`
+type portablePlanLocalState struct {
+	Recordings  []recording           `json:"recordings"`
+	Annotations []recordingAnnotation `json:"annotations"`
+	Observations []observation        `json:"observations"`
 }
 
-func computePortableRestorePlanToken(staged stagedPortableArchive, plan portableRestorePlan) (string, error) {
+type portablePlanFingerprint struct {
+	Manifest   recordingBundleManifest        `json:"manifest"`
+	Files      []portablePlanFileFingerprint `json:"files"`
+	Plan       portableRestorePlan           `json:"plan"`
+	LocalState portablePlanLocalState        `json:"local_state"`
+}
+
+func snapshotPortablePlanLocalState(db *store, rs *recordingStore) portablePlanLocalState {
+	rs.mu.Lock()
+	recordings := append([]recording(nil), rs.data.Recordings...)
+	annotations := append([]recordingAnnotation(nil), rs.data.Annotations...)
+	rs.mu.Unlock()
+	db.mu.Lock()
+	observations := append([]observation(nil), db.data.Observations...)
+	db.mu.Unlock()
+	sort.Slice(recordings, func(i, j int) bool { return recordings[i].ID < recordings[j].ID })
+	sort.Slice(annotations, func(i, j int) bool { return annotations[i].ID < annotations[j].ID })
+	sort.Slice(observations, func(i, j int) bool { return observations[i].ID < observations[j].ID })
+	return portablePlanLocalState{Recordings: recordings, Annotations: annotations, Observations: observations}
+}
+
+func computePortableRestorePlanToken(staged stagedPortableArchive, plan portableRestorePlan, localState portablePlanLocalState) (string, error) {
 	files := make([]portablePlanFileFingerprint, 0, len(staged.files))
 	for name, file := range staged.files {
 		files = append(files, portablePlanFileFingerprint{Path: name, Size: file.size, SHA256: file.sha256})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	plan.PlanToken = ""
-	body, err := json.Marshal(portablePlanFingerprint{Manifest: staged.manifest, Files: files, Plan: plan})
+	body, err := json.Marshal(portablePlanFingerprint{Manifest: staged.manifest, Files: files, Plan: plan, LocalState: localState})
 	if err != nil {
 		return "", err
 	}
@@ -186,7 +207,8 @@ func planStagedPortableRestore(staged stagedPortableArchive, db *store, rs *reco
 			return portableRestorePlan{}, fmt.Errorf("archive contains unreferenced audio entry %q", name)
 		}
 	}
-	token, err := computePortableRestorePlanToken(staged, plan)
+	localState := snapshotPortablePlanLocalState(db, rs)
+	token, err := computePortableRestorePlanToken(staged, plan, localState)
 	if err != nil {
 		return portableRestorePlan{}, errors.New("cannot fingerprint restore plan")
 	}
