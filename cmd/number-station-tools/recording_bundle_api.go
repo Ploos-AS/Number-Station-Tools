@@ -16,16 +16,14 @@ func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, aud
 	})
 
 	mux.HandleFunc("GET /api/recording-archive", func(w http.ResponseWriter, _ *http.Request) {
+		plan, err := preparePortableArchive(rs, audioDir)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		w.Header().Set("Content-Type", "application/gzip")
 		w.Header().Set("Content-Disposition", `attachment; filename="number-station-archive.tar.gz"`)
-		if _, err := writePortableArchive(w, rs, audioDir); err != nil {
-			if !responseStarted(w) {
-				http.Error(w, err.Error(), http.StatusConflict)
-			}
-		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = writePreparedPortableArchive(w, plan)
 	})
-}
-
-func responseStarted(http.ResponseWriter) bool {
-	return false
 }
