@@ -6,9 +6,10 @@ import (
 )
 
 func registerRecordingHandlers(mux *http.ServeMux, db *store, rs *recordingStore) {
-	registerAudioHandlers(mux, db, rs, getenv("NUMBER_STATION_TOOLS_AUDIO_DIR", "/data/audio"))
+	audioDir := getenv("NUMBER_STATION_TOOLS_AUDIO_DIR", "/data/audio")
+	registerAudioHandlers(mux, db, rs, audioDir)
 	registerAnnotationHandlers(mux, rs)
-	registerRecordingBundleHandlers(mux, rs)
+	registerRecordingBundleHandlers(mux, rs, audioDir)
 
 	mux.HandleFunc("GET /api/recordings", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, rs.list())

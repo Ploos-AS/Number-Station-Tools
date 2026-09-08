@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.9
+## Current milestone: M5.0
 
 The application currently provides:
 
@@ -39,6 +39,8 @@ The application currently provides:
 - versioned JSON annotation export/import with conservative recording matching and duplicate suppression
 - flat CSV annotation export for archival and offline analysis
 - versioned metadata-only recording/annotation manifest export with checksums and provenance
+- full portable `tar.gz` archival export containing `manifest.json` plus verified managed WAV/FLAC files
+- preflight verification of managed archive paths, regular-file status, size and SHA-256 before archive streaming
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -48,20 +50,22 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.9 does not
+support determines whether a WAV/FLAC recording can be played; M5.0 does not
 transcode audio or send it to an external service. Saved timestamp annotations
 persist in `recordings.json`, can be searched across the archive, exported as JSON
 or CSV, and safely imported from the versioned JSON format.
 
-M4.9 also adds a versioned recording manifest that groups recording metadata,
-SHA-256 checksums and annotations in one portable JSON document. The manifest is
-metadata-only: audio files and derived waveform, frequency, spectrogram and
-fingerprint payloads are not embedded.
+M5.0 builds on the M4.9 recording manifest with a downloadable `tar.gz` archive.
+The archive contains the same portable `manifest.json` plus managed WAV/FLAC files
+at their controlled `audio/<filename>` paths. Before any archive response starts,
+every managed file must be a regular file and its path, stored size and SHA-256
+must match the recording metadata. External metadata-only recordings remain in the
+manifest but have no audio payload in the archive.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_9.md](docs/M4_9.md) for the current scope.
+See [docs/M5_0.md](docs/M5_0.md) for the current scope.
 
 ## Run with Go
 
@@ -93,6 +97,7 @@ Then open <http://localhost:8080>.
 - `GET /api/now-next`
 - `GET/POST /api/recordings`
 - `GET /api/recording-bundle`
+- `GET /api/recording-archive`
 - `GET /api/recordings/{id}/similar`
 - `GET /api/recording-clusters?threshold=98`
 - `PUT /api/recording-clusters/{id}/review?threshold=98`
@@ -120,7 +125,7 @@ Number Station Tools is intended to grow into a workbench for:
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - categorized timestamp annotations, bookmarks and operator notes on recordings
 - cross-recording annotation search, portable transfer and timeline navigation
-- portable recording manifests and later full archival bundles
+- portable recording manifests and full verified archival bundles
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports

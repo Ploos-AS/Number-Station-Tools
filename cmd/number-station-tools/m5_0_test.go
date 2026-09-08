@@ -5,18 +5,19 @@ import (
 	"testing"
 )
 
-func TestM49RecordingBundleEmbedded(t *testing.T) {
+func TestM50PortableArchiveEmbedded(t *testing.T) {
 	index, err := webFS.ReadFile("web/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	page := string(index)
+	html := string(index)
 	for _, want := range []string{
-		"/api/recording-bundle",
-		"Export manifest only",
-		"recording metadata, checksums, annotations",
+		"/api/recording-archive",
+		"Export full archive",
+		"manifest.json",
+		"managed WAV/FLAC",
 	} {
-		if !strings.Contains(page, want) {
+		if !strings.Contains(html, want) {
 			t.Fatalf("index missing %q", want)
 		}
 	}
