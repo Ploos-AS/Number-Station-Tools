@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M5.6
+## Current milestone: M5.7
 
 The application currently provides:
 
@@ -49,6 +49,8 @@ The application currently provides:
 - persistent local restore receipts for successful full and selective restores
 - SHA-256 receipt hash chaining with `previous_hash` and `receipt_hash`
 - read-only receipt-chain verification with tamper detection and chain head reporting
+- deterministic external receipt-chain anchor export with receipt count and chain-head hash
+- verification of saved/offline anchors against the current chain, including valid later extensions
 - read-only restore audit history with mode, UTC time, plan token, selection and result counts
 - per-recording annotation import/skip counts before restore
 - local rebuild of waveform, frequency, spectrogram and fingerprint data from restored managed audio
@@ -61,24 +63,29 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M5.6 does not
+support determines whether a WAV/FLAC recording can be played; M5.7 does not
 transcode audio or send it to an external service. Saved timestamp annotations
 persist in `recordings.json`, can be searched across the archive, exported as JSON
 or CSV, and safely imported from the versioned JSON format.
 
-M5.6 makes the M5.5 restore audit trail tamper-evident. Every newly persisted
-receipt includes the SHA-256 of its canonical content and the hash of the preceding
-receipt. Appending a receipt first verifies the complete existing chain and refuses
-to extend a broken log. `GET /api/recording-archive/receipts/verify` reports the
-chain status, receipt count and current head hash, or identifies the first failing
-receipt. Existing M5.5 receipt files that contain no hashes are sealed once when
-first opened by M5.6; this establishes integrity from that migration point onward
-but cannot retroactively prove that legacy data was untouched before migration.
+M5.7 extends the M5.6 tamper-evident receipt chain with a small external anchor
+format. `GET /api/recording-archive/receipts/anchor` downloads a deterministic JSON
+object containing `version`, `receipt_count` and `head_hash`. Store that file on a
+separate machine, offline medium, Git repository, backup system or other independent
+location. `POST /api/recording-archive/receipts/anchor/verify` verifies the saved
+anchor against the current local chain. A matching prefix remains valid if legitimate
+new receipts have been appended after the anchor was created; rewriting an anchored
+prefix changes its hash and is detected. No external provider or API key is required.
+
+The anchor is evidence only when an independent copy is retained outside the same
+trust boundary as the receipt store. It is not a digital signature, trusted timestamp
+or proof against an attacker who can replace both the local chain and every external
+copy of its anchor.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M5_6.md](docs/M5_6.md) for the current scope.
+See [docs/M5_7.md](docs/M5_7.md) for the current scope.
 
 ## Run with Go
 
@@ -113,6 +120,8 @@ Then open <http://localhost:8080>.
 - `GET /api/recording-archive`
 - `GET /api/recording-archive/receipts?limit=50`
 - `GET /api/recording-archive/receipts/verify`
+- `GET /api/recording-archive/receipts/anchor`
+- `POST /api/recording-archive/receipts/anchor/verify`
 - `POST /api/recording-archive/plan`
 - `POST /api/recording-archive/import-selected?recording_id=...&plan_token=...`
 - `POST /api/recording-archive/import`
@@ -143,7 +152,7 @@ Number Station Tools is intended to grow into a workbench for:
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - categorized timestamp annotations, bookmarks and operator notes on recordings
 - cross-recording annotation search, portable transfer and timeline navigation
-- portable recording manifests, verified archival bundles, token-bound dry-run planning, policy-controlled restore and tamper-evident local audit receipts
+- portable recording manifests, verified archival bundles, token-bound dry-run planning, policy-controlled restore and externally anchorable tamper-evident audit receipts
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
