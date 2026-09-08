@@ -24,11 +24,11 @@ const (
 )
 
 type portableRestoreResult struct {
-	ImportedRecords    int `json:"imported_recordings"`
+	ImportedRecords     int `json:"imported_recordings"`
 	ImportedAnnotations int `json:"imported_annotations"`
-	Duplicates         int `json:"duplicates"`
-	Conflicts          int `json:"conflicts"`
-	Unmatched          int `json:"unmatched"`
+	Duplicates          int `json:"duplicates"`
+	Conflicts           int `json:"conflicts"`
+	Unmatched           int `json:"unmatched"`
 }
 
 type stagedRestoreFile struct {
@@ -216,14 +216,39 @@ func restorePortableArchive(src io.Reader, db *store, rs *recordingStore, audioD
 	result := portableRestoreResult{}
 	seenIDs := make(map[string]struct{}, len(staged.manifest.Items))
 	requiredFiles := make(map[string]struct{})
+	for _, item := range staged.manifest.Items {
+		if !item.Recording.Managed {
+			continue
+		}
+		archivePath, err := managedArchivePath(item.Recording)
+		if err != nil {
+			return portableRestoreResult{}, fmt.Errorf("recording %s: %w", item.Recording.ID, err)
+		}
+		file, ok := staged.files[archivePath]
+		if !ok {
+			return portableRestoreResult{}, fmt.Errorf("managed recording %s is missing %s", item.Recording.ID, archivePath)
+		}
+		wantHash := strings.ToLower(strings.TrimSpace(item.Recording.SHA256))
+		if file.size != item.Recording.SizeBytes {
+			return portableRestoreResult{}, fmt.Errorf("recording %s: audio size does not match manifest", item.Recording.ID)
+		}
+		if file.sha256 != wantHash {
+			return portableRestoreResult{}, fmt.Errorf("recording %s: audio SHA-256 does not match manifest", item.Recording.ID)
+		}
+		requiredFiles[archivePath] = struct{}{}
+	}
+	for name := range staged.files {
+		if _, ok := requiredFiles[name]; !ok {
+			return portableRestoreResult{}, fmt.Errorf("archive contains unreferenced audio entry %q", name)
+		}
+	}
+
 	type preparedItem struct {
 		recording   recording
 		annotations []recordingAnnotation
 		staged      *stagedRestoreFile
-		duplicate   bool
 	}
 	prepared := make([]preparedItem, 0, len(staged.manifest.Items))
-
 	for _, item := range staged.manifest.Items {
 		rec := portableRecording(item.Recording)
 		rec.ID = strings.TrimSpace(rec.ID)
@@ -234,21 +259,10 @@ func restorePortableArchive(src io.Reader, db *store, rs *recordingStore, audioD
 			return portableRestoreResult{}, fmt.Errorf("manifest contains duplicate recording id %s", rec.ID)
 		}
 		seenIDs[rec.ID] = struct{}{}
-		if !observationExists(db, rec.ObservationID) {
-			result.Unmatched++
-			continue
-		}
 		var stagedFile *stagedRestoreFile
 		if rec.Managed {
-			archivePath, err := managedArchivePath(rec)
-			if err != nil {
-				return portableRestoreResult{}, fmt.Errorf("recording %s: %w", rec.ID, err)
-			}
-			file, ok := staged.files[archivePath]
-			if !ok {
-				return portableRestoreResult{}, fmt.Errorf("managed recording %s is missing %s", rec.ID, archivePath)
-			}
-			requiredFiles[archivePath] = struct{}{}
+			archivePath, _ := managedArchivePath(rec)
+			file := staged.files[archivePath]
 			rebuilt, err := prepareRestoredRecording(rec, file)
 			if err != nil {
 				return portableRestoreResult{}, fmt.Errorf("recording %s: %w", rec.ID, err)
@@ -259,12 +273,11 @@ func restorePortableArchive(src io.Reader, db *store, rs *recordingStore, audioD
 		} else if err := validateRecording(rec); err != nil {
 			return portableRestoreResult{}, fmt.Errorf("recording %s: %w", rec.ID, err)
 		}
-		prepared = append(prepared, preparedItem{recording: rec, annotations: item.Annotations, staged: stagedFile})
-	}
-	for name := range staged.files {
-		if _, ok := requiredFiles[name]; !ok {
-			return portableRestoreResult{}, fmt.Errorf("archive contains unreferenced audio entry %q", name)
+		if !observationExists(db, rec.ObservationID) {
+			result.Unmatched++
+			continue
 		}
+		prepared = append(prepared, preparedItem{recording: rec, annotations: item.Annotations, staged: stagedFile})
 	}
 
 	rs.mu.Lock()
@@ -283,7 +296,6 @@ func restorePortableArchive(src io.Reader, db *store, rs *recordingStore, audioD
 		target := entry.recording
 		if existing, ok := existingByID[target.ID]; ok {
 			if samePortableRecording(existing, target) {
-				entry.duplicate = true
 				result.Duplicates++
 				target = existing
 			} else {
