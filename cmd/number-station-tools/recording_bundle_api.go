@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +33,25 @@ func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, aud
 }
 
 func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordingStore, audioDir string) {
+	receipts, receiptStoreErr := openRestoreReceiptStore(rs.path + ".restore-receipts.json")
+
+	mux.HandleFunc("GET /api/recording-archive/receipts", func(w http.ResponseWriter, r *http.Request) {
+		if receiptStoreErr != nil {
+			http.Error(w, "restore receipt store is unavailable", http.StatusInternalServerError)
+			return
+		}
+		limit := 50
+		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 1 || parsed > 200 {
+				http.Error(w, "limit must be between 1 and 200", http.StatusBadRequest)
+				return
+			}
+			limit = parsed
+		}
+		writeJSON(w, http.StatusOK, receipts.list(limit))
+	})
+
 	mux.HandleFunc("POST /api/recording-archive/plan", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
 		plan, err := planPortableRestore(r.Body, db, rs, audioDir)
@@ -42,26 +62,62 @@ func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordin
 		writeJSON(w, http.StatusOK, plan)
 	})
 	mux.HandleFunc("POST /api/recording-archive/import-selected", func(w http.ResponseWriter, r *http.Request) {
+		if receiptStoreErr != nil {
+			http.Error(w, "restore receipt store is unavailable", http.StatusInternalServerError)
+			return
+		}
 		planToken := strings.TrimSpace(r.URL.Query().Get("plan_token"))
 		if planToken == "" {
 			http.Error(w, "plan_token is required; plan the archive before selective restore", http.StatusPreconditionRequired)
 			return
 		}
+		selectedIDs := r.URL.Query()["recording_id"]
 		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
-		result, err := restorePortableArchiveSelectedWithPlanToken(r.Body, db, rs, audioDir, r.URL.Query()["recording_id"], planToken)
+		result, err := restorePortableArchiveSelectedWithPlanToken(r.Body, db, rs, audioDir, selectedIDs, planToken)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		receipt, err := receipts.add(restoreReceipt{
+			Mode:                 "selected",
+			PlanToken:            planToken,
+			SelectedRecordingIDs: selectedIDs,
+			ImportedRecordings:   result.ImportedRecords,
+			ImportedAnnotations:  result.ImportedAnnotations,
+			Duplicates:           result.Duplicates,
+			Conflicts:            result.Conflicts,
+			Unmatched:            result.Unmatched,
+			SkippedByPolicy:      result.SkippedByPolicy,
+		})
+		if err != nil {
+			http.Error(w, "restore succeeded but receipt persistence failed", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, selectiveRestoreResponse{portableSelectiveRestoreResult: result, Receipt: receipt})
 	})
 	mux.HandleFunc("POST /api/recording-archive/import", func(w http.ResponseWriter, r *http.Request) {
+		if receiptStoreErr != nil {
+			http.Error(w, "restore receipt store is unavailable", http.StatusInternalServerError)
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
 		result, err := restorePortableArchive(r.Body, db, rs, audioDir)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		receipt, err := receipts.add(restoreReceipt{
+			Mode:                "full",
+			ImportedRecordings:  result.ImportedRecords,
+			ImportedAnnotations: result.ImportedAnnotations,
+			Duplicates:          result.Duplicates,
+			Conflicts:           result.Conflicts,
+			Unmatched:           result.Unmatched,
+		})
+		if err != nil {
+			http.Error(w, "restore succeeded but receipt persistence failed", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, restoreResponse{portableRestoreResult: result, Receipt: receipt})
 	})
 }
