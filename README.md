@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M5.1
+## Current milestone: M5.2
 
 The application currently provides:
 
@@ -41,6 +41,8 @@ The application currently provides:
 - versioned metadata-only recording/annotation manifest export with checksums and provenance
 - full portable `tar.gz` archival export containing `manifest.json` plus verified managed WAV/FLAC files
 - safe restore/import of M5.0 archives with staged extraction, checksum validation and collision protection
+- dry-run restore planning with per-recording `import`, `duplicate`, `conflict` and `unmatched` classification
+- per-recording annotation import/skip counts before restore
 - local rebuild of waveform, frequency, spectrogram and fingerprint data from restored managed audio
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
@@ -51,23 +53,22 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M5.1 does not
+support determines whether a WAV/FLAC recording can be played; M5.2 does not
 transcode audio or send it to an external service. Saved timestamp annotations
 persist in `recordings.json`, can be searched across the archive, exported as JSON
 or CSV, and safely imported from the versioned JSON format.
 
-M5.0 archives can now be restored through a conservative staged importer. Archive
-paths, manifest structure, file sizes, SHA-256 values and WAV/FLAC signatures are
-validated before commit. Existing recording IDs are never blindly overwritten;
-equivalent entries are treated as duplicates, different entries as conflicts, and
-recordings whose observation is unavailable locally are reported as unmatched.
-Derived preview/fingerprint payloads are rebuilt locally from restored audio rather
-than trusted from the archive manifest.
+Before committing an M5.0 archive restore, M5.2 can run the same structural,
+checksum, managed-audio and annotation validation as a dry-run planner. It reports
+which recordings would be imported, treated as duplicates, rejected as conflicts,
+or remain unmatched because their observation is not present locally. The planner
+does not append recording metadata, move managed audio into final paths, or save
+annotations; temporary validation staging is removed before the request completes.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M5_1.md](docs/M5_1.md) for the current scope.
+See [docs/M5_2.md](docs/M5_2.md) for the current scope.
 
 ## Run with Go
 
@@ -100,6 +101,7 @@ Then open <http://localhost:8080>.
 - `GET/POST /api/recordings`
 - `GET /api/recording-bundle`
 - `GET /api/recording-archive`
+- `POST /api/recording-archive/plan`
 - `POST /api/recording-archive/import`
 - `GET /api/recordings/{id}/similar`
 - `GET /api/recording-clusters?threshold=98`
@@ -128,7 +130,7 @@ Number Station Tools is intended to grow into a workbench for:
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - categorized timestamp annotations, bookmarks and operator notes on recordings
 - cross-recording annotation search, portable transfer and timeline navigation
-- portable recording manifests, verified archival bundles and conservative local restore
+- portable recording manifests, verified archival bundles, dry-run planning and conservative local restore
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
