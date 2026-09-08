@@ -21,11 +21,11 @@ type portableRestorePlanEntry struct {
 }
 
 type portableRestorePlan struct {
-	Import     int                        `json:"import"`
-	Duplicate  int                        `json:"duplicate"`
-	Conflict   int                        `json:"conflict"`
-	Unmatched  int                        `json:"unmatched"`
-	Entries    []portableRestorePlanEntry `json:"entries"`
+	Import    int                        `json:"import"`
+	Duplicate int                        `json:"duplicate"`
+	Conflict  int                        `json:"conflict"`
+	Unmatched int                        `json:"unmatched"`
+	Entries   []portableRestorePlanEntry `json:"entries"`
 }
 
 func planPortableRestore(src io.Reader, db *store, rs *recordingStore, audioDir string) (portableRestorePlan, error) {
