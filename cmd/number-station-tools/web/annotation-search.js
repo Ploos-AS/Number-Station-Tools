@@ -63,5 +63,6 @@
     if (!button) return;
     jumpToHit(button.dataset.annotationSearchRecording, button.dataset.annotationSearchStart);
   });
+  window.addEventListener("numberstation:annotations-imported", search);
   search();
 })();
