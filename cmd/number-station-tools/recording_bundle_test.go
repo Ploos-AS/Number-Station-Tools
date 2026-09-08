@@ -35,9 +35,9 @@ func TestRecordingBundleExport(t *testing.T) {
 }
 
 func TestRecordingBundleAPI(t *testing.T) {
-	_, rs := annotationTestStore(t)
+	db, rs := annotationTestStore(t)
 	mux := http.NewServeMux()
-	registerRecordingBundleHandlers(mux, rs, t.TempDir())
+	registerRecordingBundleHandlers(mux, db, rs, t.TempDir())
 	req := httptest.NewRequest(http.MethodGet, "/api/recording-bundle", nil)
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
