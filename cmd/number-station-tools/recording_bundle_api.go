@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 )
+
+const maxRestoreReceiptAnchorBytes = 64 << 10
 
 func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, audioDir string) {
 	mux.HandleFunc("GET /api/recording-bundle", func(w http.ResponseWriter, _ *http.Request) {
@@ -58,6 +62,47 @@ func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordin
 			return
 		}
 		writeJSON(w, http.StatusOK, receipts.verify())
+	})
+
+	mux.HandleFunc("GET /api/recording-archive/receipts/anchor", func(w http.ResponseWriter, _ *http.Request) {
+		if receiptStoreErr != nil {
+			http.Error(w, "restore receipt store is unavailable", http.StatusInternalServerError)
+			return
+		}
+		anchor, err := receipts.anchor()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="number-station-restore-receipt-anchor.json"`)
+		writeJSON(w, http.StatusOK, anchor)
+	})
+
+	mux.HandleFunc("POST /api/recording-archive/receipts/anchor/verify", func(w http.ResponseWriter, r *http.Request) {
+		if receiptStoreErr != nil {
+			http.Error(w, "restore receipt store is unavailable", http.StatusInternalServerError)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxRestoreReceiptAnchorBytes)
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		var anchor restoreReceiptAnchor
+		if err := decoder.Decode(&anchor); err != nil {
+			http.Error(w, "invalid restore receipt anchor", http.StatusBadRequest)
+			return
+		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			http.Error(w, "invalid restore receipt anchor", http.StatusBadRequest)
+			return
+		}
+		result := receipts.verifyAnchor(anchor)
+		status := http.StatusOK
+		if !result.Valid {
+			status = http.StatusConflict
+		}
+		writeJSON(w, status, result)
 	})
 
 	mux.HandleFunc("POST /api/recording-archive/plan", func(w http.ResponseWriter, r *http.Request) {
