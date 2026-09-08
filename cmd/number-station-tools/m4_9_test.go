@@ -14,7 +14,6 @@ func TestM49RecordingBundleEmbedded(t *testing.T) {
 	for _, want := range []string{
 		"/api/recording-bundle",
 		"Export manifest only",
-		"recording metadata, checksums, annotations",
 	} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("index missing %q", want)

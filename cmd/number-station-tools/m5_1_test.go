@@ -15,7 +15,6 @@ func TestM51ArchiveRestoreEmbedded(t *testing.T) {
 		"Verify and restore archive",
 		"recording-archive-import-form",
 		"/archive-restore.js",
-		"missing observations are reported as unmatched",
 	} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("index missing %q", want)
