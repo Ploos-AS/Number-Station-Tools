@@ -18,9 +18,9 @@ import (
 
 const (
 	maxPortableArchiveUploadBytes int64 = 1 << 30
-	maxPortableArchiveExpanded   int64 = 2 << 30
-	maxPortableArchiveEntries          = 10002
-	maxPortableManifestBytes     int64 = 16 << 20
+	maxPortableArchiveExpanded    int64 = 2 << 30
+	maxPortableArchiveEntries           = 10002
+	maxPortableManifestBytes      int64 = 16 << 20
 )
 
 type portableRestoreResult struct {
