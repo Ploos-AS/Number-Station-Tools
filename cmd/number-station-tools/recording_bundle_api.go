@@ -18,7 +18,7 @@ func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, aud
 	mux.HandleFunc("GET /api/recording-archive", func(w http.ResponseWriter, _ *http.Request) {
 		plan, err := preparePortableArchive(rs, audioDir)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusConflict)
+			http.Error(w, "recording archive integrity preflight failed", http.StatusConflict)
 			return
 		}
 		w.Header().Set("Content-Type", "application/gzip")
