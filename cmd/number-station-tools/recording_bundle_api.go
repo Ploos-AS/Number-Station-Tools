@@ -2,7 +2,7 @@ package main
 
 import "net/http"
 
-func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, audioDir string) {
+func registerRecordingBundleHandlers(mux *http.ServeMux, db *store, rs *recordingStore, audioDir string) {
 	mux.HandleFunc("GET /api/recording-bundle", func(w http.ResponseWriter, _ *http.Request) {
 		body, err := marshalRecordingBundle(rs.exportRecordingBundle())
 		if err != nil {
@@ -25,5 +25,15 @@ func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, aud
 		w.Header().Set("Content-Disposition", `attachment; filename="number-station-archive.tar.gz"`)
 		w.WriteHeader(http.StatusOK)
 		_, _ = writePreparedPortableArchive(w, plan)
+	})
+
+	mux.HandleFunc("POST /api/recording-archive/import", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
+		result, err := restorePortableArchive(r.Body, db, rs, audioDir)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	})
 }
