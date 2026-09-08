@@ -11,17 +11,17 @@ import (
 )
 
 type restoreReceipt struct {
-	ID                  string   `json:"id"`
-	At                  string   `json:"at"`
-	Mode                string   `json:"mode"`
-	PlanToken           string   `json:"plan_token,omitempty"`
+	ID                   string   `json:"id"`
+	At                   string   `json:"at"`
+	Mode                 string   `json:"mode"`
+	PlanToken            string   `json:"plan_token,omitempty"`
 	SelectedRecordingIDs []string `json:"selected_recording_ids,omitempty"`
-	ImportedRecordings  int      `json:"imported_recordings"`
-	ImportedAnnotations int      `json:"imported_annotations"`
-	Duplicates          int      `json:"duplicates"`
-	Conflicts           int      `json:"conflicts"`
-	Unmatched           int      `json:"unmatched"`
-	SkippedByPolicy     int      `json:"skipped_by_policy,omitempty"`
+	ImportedRecordings   int      `json:"imported_recordings"`
+	ImportedAnnotations  int      `json:"imported_annotations"`
+	Duplicates           int      `json:"duplicates"`
+	Conflicts            int      `json:"conflicts"`
+	Unmatched            int      `json:"unmatched"`
+	SkippedByPolicy      int      `json:"skipped_by_policy,omitempty"`
 }
 
 type restoreReceiptData struct {
