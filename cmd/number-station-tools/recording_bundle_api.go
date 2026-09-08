@@ -27,3 +27,15 @@ func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, aud
 		_, _ = writePreparedPortableArchive(w, plan)
 	})
 }
+
+func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordingStore, audioDir string) {
+	mux.HandleFunc("POST /api/recording-archive/import", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
+		result, err := restorePortableArchive(r.Body, db, rs, audioDir)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	})
+}
