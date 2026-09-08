@@ -1,6 +1,9 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 func registerRecordingBundleHandlers(mux *http.ServeMux, rs *recordingStore, audioDir string) {
 	mux.HandleFunc("GET /api/recording-bundle", func(w http.ResponseWriter, _ *http.Request) {
@@ -39,10 +42,15 @@ func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordin
 		writeJSON(w, http.StatusOK, plan)
 	})
 	mux.HandleFunc("POST /api/recording-archive/import-selected", func(w http.ResponseWriter, r *http.Request) {
+		planToken := strings.TrimSpace(r.URL.Query().Get("plan_token"))
+		if planToken == "" {
+			http.Error(w, "plan_token is required; plan the archive before selective restore", http.StatusPreconditionRequired)
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
-		result, err := restorePortableArchiveSelected(r.Body, db, rs, audioDir, r.URL.Query()["recording_id"])
+		result, err := restorePortableArchiveSelectedWithPlanToken(r.Body, db, rs, audioDir, r.URL.Query()["recording_id"], planToken)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
