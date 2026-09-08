@@ -22,6 +22,18 @@ type portableArchiveSummary struct {
 	RecordingItems int `json:"recording_items"`
 }
 
+type verifiedArchiveFile struct {
+	path        string
+	archivePath string
+	info        os.FileInfo
+}
+
+type portableArchivePlan struct {
+	manifest       []byte
+	files          []verifiedArchiveFile
+	recordingItems int
+}
+
 func managedArchivePath(rec recording) (string, error) {
 	if !rec.Managed {
 		return "", nil
@@ -77,34 +89,31 @@ func verifyManagedArchiveFile(audioDir string, rec recording) (string, os.FileIn
 	return path, info, nil
 }
 
-func writePortableArchive(dst io.Writer, rs *recordingStore, audioDir string) (portableArchiveSummary, error) {
+func preparePortableArchive(rs *recordingStore, audioDir string) (portableArchivePlan, error) {
 	bundle := rs.exportRecordingBundle()
 	manifest, err := marshalRecordingBundle(bundle)
 	if err != nil {
-		return portableArchiveSummary{}, err
+		return portableArchivePlan{}, err
 	}
-
-	type verifiedFile struct {
-		path        string
-		archivePath string
-		info        os.FileInfo
-	}
-	verified := make([]verifiedFile, 0)
+	verified := make([]verifiedArchiveFile, 0)
 	for _, item := range bundle.Items {
 		if !item.Recording.Managed {
 			continue
 		}
 		archivePath, err := managedArchivePath(item.Recording)
 		if err != nil {
-			return portableArchiveSummary{}, fmt.Errorf("recording %s: %w", item.Recording.ID, err)
+			return portableArchivePlan{}, fmt.Errorf("recording %s: %w", item.Recording.ID, err)
 		}
 		path, info, err := verifyManagedArchiveFile(audioDir, item.Recording)
 		if err != nil {
-			return portableArchiveSummary{}, err
+			return portableArchivePlan{}, err
 		}
-		verified = append(verified, verifiedFile{path: path, archivePath: archivePath, info: info})
+		verified = append(verified, verifiedArchiveFile{path: path, archivePath: archivePath, info: info})
 	}
+	return portableArchivePlan{manifest: manifest, files: verified, recordingItems: len(bundle.Items)}, nil
+}
 
+func writePreparedPortableArchive(dst io.Writer, plan portableArchivePlan) (portableArchiveSummary, error) {
 	gz := gzip.NewWriter(dst)
 	tw := tar.NewWriter(gz)
 	closeWithError := func(err error) (portableArchiveSummary, error) {
@@ -114,14 +123,14 @@ func writePortableArchive(dst io.Writer, rs *recordingStore, audioDir string) (p
 	}
 
 	zeroTime := time.Unix(0, 0).UTC()
-	if err := tw.WriteHeader(&tar.Header{Name: "manifest.json", Mode: 0o644, Size: int64(len(manifest)), ModTime: zeroTime}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: "manifest.json", Mode: 0o644, Size: int64(len(plan.manifest)), ModTime: zeroTime}); err != nil {
 		return closeWithError(err)
 	}
-	if _, err := tw.Write(manifest); err != nil {
+	if _, err := tw.Write(plan.manifest); err != nil {
 		return closeWithError(err)
 	}
 
-	for _, file := range verified {
+	for _, file := range plan.files {
 		header := &tar.Header{Name: file.archivePath, Mode: 0o644, Size: file.info.Size(), ModTime: zeroTime}
 		if err := tw.WriteHeader(header); err != nil {
 			return closeWithError(err)
@@ -146,5 +155,13 @@ func writePortableArchive(dst io.Writer, rs *recordingStore, audioDir string) (p
 	if err := gz.Close(); err != nil {
 		return portableArchiveSummary{}, err
 	}
-	return portableArchiveSummary{Version: portableArchiveVersion, ManagedFiles: len(verified), RecordingItems: len(bundle.Items)}, nil
+	return portableArchiveSummary{Version: portableArchiveVersion, ManagedFiles: len(plan.files), RecordingItems: plan.recordingItems}, nil
+}
+
+func writePortableArchive(dst io.Writer, rs *recordingStore, audioDir string) (portableArchiveSummary, error) {
+	plan, err := preparePortableArchive(rs, audioDir)
+	if err != nil {
+		return portableArchiveSummary{}, err
+	}
+	return writePreparedPortableArchive(dst, plan)
 }
