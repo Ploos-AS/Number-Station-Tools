@@ -16,15 +16,18 @@
     planButton.insertAdjacentElement("afterend", selectedButton);
   }
 
+  let approvedPlanToken = "";
   const selectedFile = () => input.files?.[0] || null;
 
   const clearPlan = () => {
+    approvedPlanToken = "";
     results.replaceChildren();
     selectedButton.disabled = true;
   };
 
   const renderPlan = plan => {
-    results.replaceChildren();
+    clearPlan();
+    approvedPlanToken = plan.plan_token || "";
     let selectable = 0;
     for (const entry of plan.entries || []) {
       const li = document.createElement("li");
@@ -43,8 +46,8 @@
       }
       results.append(li);
     }
-    selectedButton.disabled = selectable === 0;
-    status.textContent = `Plan: ${plan.import} import, ${plan.duplicate} duplicate, ${plan.conflict} conflict, ${plan.unmatched} unmatched.`;
+    selectedButton.disabled = selectable === 0 || !approvedPlanToken;
+    status.textContent = `Plan: ${plan.import} import, ${plan.duplicate} duplicate, ${plan.conflict} conflict, ${plan.unmatched} unmatched. Plan token ${approvedPlanToken.slice(0, 12)}…`;
   };
 
   input.addEventListener("change", clearPlan);
@@ -70,15 +73,19 @@
 
   selectedButton.addEventListener("click", async () => {
     const file = selectedFile();
-    if (!file) return;
+    if (!file || !approvedPlanToken) {
+      status.textContent = "Plan the archive again before selective restore.";
+      return;
+    }
     const ids = [...results.querySelectorAll("[data-restore-recording-id]:checked")].map(node => node.dataset.restoreRecordingId);
     if (ids.length === 0) {
       status.textContent = "Select at least one import candidate from the restore plan.";
       return;
     }
     const query = new URLSearchParams();
+    query.set("plan_token", approvedPlanToken);
     for (const id of ids) query.append("recording_id", id);
-    status.textContent = `Restoring ${ids.length} selected recording${ids.length === 1 ? "" : "s"}…`;
+    status.textContent = `Restoring ${ids.length} selected recording${ids.length === 1 ? "" : "s"} against the approved plan…`;
     try {
       const response = await fetch(`/api/recording-archive/import-selected?${query}`, {
         method: "POST",
@@ -93,6 +100,7 @@
       input.value = "";
       window.dispatchEvent(new CustomEvent("numberstation:archive-restored", {detail: result}));
     } catch (error) {
+      clearPlan();
       status.textContent = error.message;
     }
   });

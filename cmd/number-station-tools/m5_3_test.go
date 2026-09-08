@@ -68,8 +68,13 @@ func TestPortableArchiveSelectiveRestoreAPI(t *testing.T) {
 	audioDir := filepath.Join(t.TempDir(), "audio")
 	mux := http.NewServeMux()
 	registerRecordingRestoreHandler(mux, db, rs, audioDir)
+	archive := selectiveRestoreArchive(t)
+	plan, err := planPortableRestore(bytes.NewReader(archive), db, rs, audioDir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/recording-archive/import-selected?recording_id=r1", bytes.NewReader(selectiveRestoreArchive(t)))
+	req := httptest.NewRequest(http.MethodPost, "/api/recording-archive/import-selected?recording_id=r1&plan_token="+plan.PlanToken, bytes.NewReader(archive))
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
