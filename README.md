@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.8
+## Current milestone: M4.9
 
 The application currently provides:
 
@@ -38,6 +38,7 @@ The application currently provides:
 - cross-recording annotation search by type, label and notes with direct jump-to-recording/timestamp
 - versioned JSON annotation export/import with conservative recording matching and duplicate suppression
 - flat CSV annotation export for archival and offline analysis
+- versioned metadata-only recording/annotation manifest export with checksums and provenance
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -47,17 +48,20 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.8 does not
+support determines whether a WAV/FLAC recording can be played; M4.9 does not
 transcode audio or send it to an external service. Saved timestamp annotations
 persist in `recordings.json`, can be searched across the archive, exported as JSON
-or CSV, and safely imported from the versioned JSON format. Import matches a unique
-SHA-256 when available; otherwise both recording ID and path must match. Path-only
-matching is not accepted.
+or CSV, and safely imported from the versioned JSON format.
+
+M4.9 also adds a versioned recording manifest that groups recording metadata,
+SHA-256 checksums and annotations in one portable JSON document. The manifest is
+metadata-only: audio files and derived waveform, frequency, spectrogram and
+fingerprint payloads are not embedded.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_8.md](docs/M4_8.md) for the current scope.
+See [docs/M4_9.md](docs/M4_9.md) for the current scope.
 
 ## Run with Go
 
@@ -88,6 +92,7 @@ Then open <http://localhost:8080>.
 - `GET/POST /api/schedules`
 - `GET /api/now-next`
 - `GET/POST /api/recordings`
+- `GET /api/recording-bundle`
 - `GET /api/recordings/{id}/similar`
 - `GET /api/recording-clusters?threshold=98`
 - `PUT /api/recording-clusters/{id}/review?threshold=98`
@@ -115,6 +120,7 @@ Number Station Tools is intended to grow into a workbench for:
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - categorized timestamp annotations, bookmarks and operator notes on recordings
 - cross-recording annotation search, portable transfer and timeline navigation
+- portable recording manifests and later full archival bundles
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
