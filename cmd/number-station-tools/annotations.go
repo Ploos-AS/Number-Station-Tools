@@ -21,28 +21,30 @@ var annotationTypes = map[string]struct{}{
 }
 
 type recordingAnnotation struct {
-	ID string `json:"id"`
+	ID          string `json:"id"`
 	RecordingID string `json:"recording_id"`
-	StartMS int64 `json:"start_ms"`
-	EndMS int64 `json:"end_ms,omitempty"`
-	Type string `json:"type,omitempty"`
-	Label string `json:"label"`
-	Notes string `json:"notes,omitempty"`
+	StartMS     int64  `json:"start_ms"`
+	EndMS       int64  `json:"end_ms,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Label       string `json:"label"`
+	Notes       string `json:"notes,omitempty"`
 }
 
 type annotationSearchHit struct {
-	Annotation recordingAnnotation `json:"annotation"`
-	RecordingID string `json:"recording_id"`
-	ObservationID string `json:"observation_id"`
-	Path string `json:"path"`
-	Format string `json:"format"`
-	DurationMS int64 `json:"duration_ms,omitempty"`
-	Managed bool `json:"managed,omitempty"`
+	Annotation    recordingAnnotation `json:"annotation"`
+	RecordingID   string              `json:"recording_id"`
+	ObservationID string              `json:"observation_id"`
+	Path          string              `json:"path"`
+	Format        string              `json:"format"`
+	DurationMS    int64               `json:"duration_ms,omitempty"`
+	Managed       bool                `json:"managed,omitempty"`
 }
 
 func normalizeAnnotationType(value string) string {
 	value = strings.TrimSpace(value)
-	if value == "" { return annotationTypeOther }
+	if value == "" {
+		return annotationTypeOther
+	}
 	return value
 }
 
@@ -50,83 +52,167 @@ func validateRecordingAnnotation(rec recording, annotation recordingAnnotation) 
 	annotation.Type = normalizeAnnotationType(annotation.Type)
 	annotation.Label = strings.TrimSpace(annotation.Label)
 	annotation.Notes = strings.TrimSpace(annotation.Notes)
-	if _, ok := annotationTypes[annotation.Type]; !ok { return errors.New("type must be call-up, station ID, message, tone, noise, fade, or other") }
-	if annotation.Label == "" { return errors.New("label is required") }
-	if len(annotation.Label) > 120 { return errors.New("label is too long") }
-	if len(annotation.Notes) > 2000 { return errors.New("notes are too long") }
-	if annotation.StartMS < 0 || annotation.EndMS < 0 { return errors.New("annotation timestamps must not be negative") }
-	if annotation.EndMS > 0 && annotation.EndMS <= annotation.StartMS { return errors.New("end_ms must be greater than start_ms") }
+	if _, ok := annotationTypes[annotation.Type]; !ok {
+		return errors.New("type must be call-up, station ID, message, tone, noise, fade, or other")
+	}
+	if annotation.Label == "" {
+		return errors.New("label is required")
+	}
+	if len(annotation.Label) > 120 {
+		return errors.New("label is too long")
+	}
+	if len(annotation.Notes) > 2000 {
+		return errors.New("notes are too long")
+	}
+	if annotation.StartMS < 0 || annotation.EndMS < 0 {
+		return errors.New("annotation timestamps must not be negative")
+	}
+	if annotation.EndMS > 0 && annotation.EndMS <= annotation.StartMS {
+		return errors.New("end_ms must be greater than start_ms")
+	}
 	if rec.DurationMS > 0 {
-		if annotation.StartMS > rec.DurationMS { return errors.New("start_ms exceeds recording duration") }
-		if annotation.EndMS > rec.DurationMS { return errors.New("end_ms exceeds recording duration") }
+		if annotation.StartMS > rec.DurationMS {
+			return errors.New("start_ms exceeds recording duration")
+		}
+		if annotation.EndMS > rec.DurationMS {
+			return errors.New("end_ms exceeds recording duration")
+		}
 	}
 	return nil
 }
 
 func (s *recordingStore) listAnnotations(recordingID string) ([]recordingAnnotation, error) {
-	s.mu.Lock(); defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	found := false
-	for _, rec := range s.data.Recordings { if rec.ID == recordingID { found = true; break } }
-	if !found { return nil, errors.New("recording does not exist") }
+	for _, rec := range s.data.Recordings {
+		if rec.ID == recordingID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, errors.New("recording does not exist")
+	}
 	out := make([]recordingAnnotation, 0)
 	for _, annotation := range s.data.Annotations {
-		if annotation.RecordingID == recordingID { annotation.Type = normalizeAnnotationType(annotation.Type); out = append(out, annotation) }
+		if annotation.RecordingID == recordingID {
+			annotation.Type = normalizeAnnotationType(annotation.Type)
+			out = append(out, annotation)
+		}
 	}
-	sort.Slice(out, func(i, j int) bool { if out[i].StartMS == out[j].StartMS { return out[i].ID < out[j].ID }; return out[i].StartMS < out[j].StartMS })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].StartMS == out[j].StartMS {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].StartMS < out[j].StartMS
+	})
 	return out, nil
 }
 
 func (s *recordingStore) searchAnnotations(query, annotationType string, limit int) ([]annotationSearchHit, error) {
-	s.mu.Lock(); defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	query = strings.ToLower(strings.TrimSpace(query))
 	annotationType = strings.TrimSpace(annotationType)
 	if annotationType != "" {
-		if _, ok := annotationTypes[annotationType]; !ok { return nil, errors.New("invalid annotation type") }
+		if _, ok := annotationTypes[annotationType]; !ok {
+			return nil, errors.New("invalid annotation type")
+		}
 	}
-	if limit <= 0 { limit = 50 }
-	if limit > 200 { limit = 200 }
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
 	recordings := make(map[string]recording, len(s.data.Recordings))
-	for _, rec := range s.data.Recordings { recordings[rec.ID] = rec }
+	for _, rec := range s.data.Recordings {
+		recordings[rec.ID] = rec
+	}
 	hits := make([]annotationSearchHit, 0)
 	for _, annotation := range s.data.Annotations {
 		annotation.Type = normalizeAnnotationType(annotation.Type)
-		if annotationType != "" && annotation.Type != annotationType { continue }
+		if annotationType != "" && annotation.Type != annotationType {
+			continue
+		}
 		haystack := strings.ToLower(strings.Join([]string{annotation.Type, annotation.Label, annotation.Notes}, " "))
-		if query != "" && !strings.Contains(haystack, query) { continue }
-		rec, ok := recordings[annotation.RecordingID]; if !ok { continue }
+		if query != "" && !strings.Contains(haystack, query) {
+			continue
+		}
+		rec, ok := recordings[annotation.RecordingID]
+		if !ok {
+			continue
+		}
 		hits = append(hits, annotationSearchHit{Annotation: annotation, RecordingID: rec.ID, ObservationID: rec.ObservationID, Path: rec.Path, Format: rec.Format, DurationMS: rec.DurationMS, Managed: rec.Managed})
 	}
 	sort.Slice(hits, func(i, j int) bool {
-		if hits[i].RecordingID == hits[j].RecordingID { return hits[i].Annotation.StartMS < hits[j].Annotation.StartMS }
+		if hits[i].RecordingID == hits[j].RecordingID {
+			return hits[i].Annotation.StartMS < hits[j].Annotation.StartMS
+		}
 		return hits[i].RecordingID > hits[j].RecordingID
 	})
-	if len(hits) > limit { hits = hits[:limit] }
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
 	return hits, nil
 }
 
 func (s *recordingStore) addAnnotation(recordingID string, annotation recordingAnnotation) (recordingAnnotation, error) {
-	s.mu.Lock(); defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var rec *recording
-	for i := range s.data.Recordings { if s.data.Recordings[i].ID == recordingID { rec = &s.data.Recordings[i]; break } }
-	if rec == nil { return recordingAnnotation{}, errors.New("recording does not exist") }
-	annotation.ID = id(); annotation.RecordingID = recordingID; annotation.Type = normalizeAnnotationType(annotation.Type); annotation.Label = strings.TrimSpace(annotation.Label); annotation.Notes = strings.TrimSpace(annotation.Notes)
-	if err := validateRecordingAnnotation(*rec, annotation); err != nil { return recordingAnnotation{}, err }
+	for i := range s.data.Recordings {
+		if s.data.Recordings[i].ID == recordingID {
+			rec = &s.data.Recordings[i]
+			break
+		}
+	}
+	if rec == nil {
+		return recordingAnnotation{}, errors.New("recording does not exist")
+	}
+	annotation.ID = id()
+	annotation.RecordingID = recordingID
+	annotation.Type = normalizeAnnotationType(annotation.Type)
+	annotation.Label = strings.TrimSpace(annotation.Label)
+	annotation.Notes = strings.TrimSpace(annotation.Notes)
+	if err := validateRecordingAnnotation(*rec, annotation); err != nil {
+		return recordingAnnotation{}, err
+	}
 	s.data.Annotations = append(s.data.Annotations, annotation)
-	if err := s.save(); err != nil { return recordingAnnotation{}, err }
+	if err := s.save(); err != nil {
+		return recordingAnnotation{}, err
+	}
 	return annotation, nil
 }
 
 func (s *recordingStore) updateAnnotation(recordingID, annotationID string, annotation recordingAnnotation) (recordingAnnotation, error) {
-	s.mu.Lock(); defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var rec *recording
-	for i := range s.data.Recordings { if s.data.Recordings[i].ID == recordingID { rec = &s.data.Recordings[i]; break } }
-	if rec == nil { return recordingAnnotation{}, errors.New("recording does not exist") }
-	annotation.ID = annotationID; annotation.RecordingID = recordingID; annotation.Type = normalizeAnnotationType(annotation.Type); annotation.Label = strings.TrimSpace(annotation.Label); annotation.Notes = strings.TrimSpace(annotation.Notes)
-	if err := validateRecordingAnnotation(*rec, annotation); err != nil { return recordingAnnotation{}, err }
+	for i := range s.data.Recordings {
+		if s.data.Recordings[i].ID == recordingID {
+			rec = &s.data.Recordings[i]
+			break
+		}
+	}
+	if rec == nil {
+		return recordingAnnotation{}, errors.New("recording does not exist")
+	}
+	annotation.ID = annotationID
+	annotation.RecordingID = recordingID
+	annotation.Type = normalizeAnnotationType(annotation.Type)
+	annotation.Label = strings.TrimSpace(annotation.Label)
+	annotation.Notes = strings.TrimSpace(annotation.Notes)
+	if err := validateRecordingAnnotation(*rec, annotation); err != nil {
+		return recordingAnnotation{}, err
+	}
 	for i := range s.data.Annotations {
 		if s.data.Annotations[i].ID == annotationID && s.data.Annotations[i].RecordingID == recordingID {
 			s.data.Annotations[i] = annotation
-			if err := s.save(); err != nil { return recordingAnnotation{}, err }
+			if err := s.save(); err != nil {
+				return recordingAnnotation{}, err
+			}
 			return annotation, nil
 		}
 	}
@@ -134,7 +220,8 @@ func (s *recordingStore) updateAnnotation(recordingID, annotationID string, anno
 }
 
 func (s *recordingStore) deleteAnnotation(recordingID, annotationID string) error {
-	s.mu.Lock(); defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for i := range s.data.Annotations {
 		if s.data.Annotations[i].ID == annotationID && s.data.Annotations[i].RecordingID == recordingID {
 			s.data.Annotations = append(s.data.Annotations[:i], s.data.Annotations[i+1:]...)
