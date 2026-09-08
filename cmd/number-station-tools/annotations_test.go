@@ -102,6 +102,28 @@ func TestRecordingAnnotationValidation(t *testing.T) {
 	}
 }
 
+func TestRecordingAnnotationSearch(t *testing.T) {
+	_, rs := annotationTestStore(t)
+	if _, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 1000, Type: annotationTypeTone, Label: "Opening tone", Notes: "steady carrier"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rs.addAnnotation("r1", recordingAnnotation{StartMS: 3000, Type: annotationTypeMessage, Label: "Message", Notes: "five figure groups"}); err != nil {
+		t.Fatal(err)
+	}
+
+	hits, err := rs.searchAnnotations("carrier", "", 50)
+	if err != nil || len(hits) != 1 || hits[0].Annotation.Type != annotationTypeTone || hits[0].Path != "audio/r1.wav" {
+		t.Fatalf("search hits=%#v err=%v", hits, err)
+	}
+	hits, err = rs.searchAnnotations("", annotationTypeMessage, 50)
+	if err != nil || len(hits) != 1 || hits[0].Annotation.Label != "Message" {
+		t.Fatalf("type hits=%#v err=%v", hits, err)
+	}
+	if _, err := rs.searchAnnotations("", "speech", 50); err == nil {
+		t.Fatal("expected invalid type error")
+	}
+}
+
 func TestRecordingAnnotationAPI(t *testing.T) {
 	_, rs := annotationTestStore(t)
 	mux := http.NewServeMux()
@@ -131,6 +153,17 @@ func TestRecordingAnnotationAPI(t *testing.T) {
 	var items []recordingAnnotation
 	if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil || len(items) != 1 || items[0].ID != created.ID || items[0].Type != annotationTypeTone {
 		t.Fatalf("GET annotations=%#v err=%v", items, err)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/annotations?q=local&type=tone&limit=10", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("search status=%d body=%s", w.Code, w.Body.String())
+	}
+	var hits []annotationSearchHit
+	if err := json.Unmarshal(w.Body.Bytes(), &hits); err != nil || len(hits) != 1 || hits[0].RecordingID != "r1" {
+		t.Fatalf("search hits=%#v err=%v", hits, err)
 	}
 
 	req = httptest.NewRequest(http.MethodDelete, "/api/recordings/r1/annotations/"+created.ID, nil)

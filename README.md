@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M4.6
+## Current milestone: M4.7
 
 The application currently provides:
 
@@ -35,6 +35,7 @@ The application currently provides:
 - keyboard Bookmark creation with `B` on a focused seek preview
 - fixed annotation categories: `call-up`, `station ID`, `message`, `tone`, `noise`, `fade`, `other`
 - per-recording annotation filtering by category with category-specific marker styling
+- cross-recording annotation search by type, label and notes with direct jump-to-recording/timestamp
 - local JSON persistence under `/data`
 - embedded web UI and JSON API
 - dependency-free Go build and non-root OCI runtime
@@ -44,16 +45,16 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M4.6 does not
+support determines whether a WAV/FLAC recording can be played; M4.7 does not
 transcode audio or send it to an external service. Saved timestamp annotations
 persist in `recordings.json`, can be classified with a fixed local type vocabulary,
-and can be filtered in the workbench. Older annotations without a type are treated
-as `other`.
+filtered per recording, and searched globally across the archive. Older annotations
+without a type are treated as `other`.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M4_6.md](docs/M4_6.md) for the current scope.
+See [docs/M4_7.md](docs/M4_7.md) for the current scope.
 
 ## Run with Go
 
@@ -89,6 +90,7 @@ Then open <http://localhost:8080>.
 - `PUT /api/recording-clusters/{id}/review?threshold=98`
 - `DELETE /api/recording-clusters/{id}/review`
 - `GET /api/observations/{id}/recordings`
+- `GET /api/annotations?q=&type=&limit=`
 - `GET/POST /api/recordings/{id}/annotations`
 - `PUT/DELETE /api/recordings/{id}/annotations/{annotationID}`
 - `POST /api/audio`
@@ -106,6 +108,7 @@ Number Station Tools is intended to grow into a workbench for:
 - WAV/FLAC recording archive and interactive playback
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - categorized timestamp annotations, bookmarks and operator notes on recordings
+- cross-recording annotation search and timeline navigation
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports

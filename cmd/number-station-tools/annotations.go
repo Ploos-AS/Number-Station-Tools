@@ -17,13 +17,7 @@ const (
 )
 
 var annotationTypes = map[string]struct{}{
-	annotationTypeCallUp:    {},
-	annotationTypeStationID: {},
-	annotationTypeMessage:   {},
-	annotationTypeTone:      {},
-	annotationTypeNoise:     {},
-	annotationTypeFade:      {},
-	annotationTypeOther:     {},
+	annotationTypeCallUp: {}, annotationTypeStationID: {}, annotationTypeMessage: {}, annotationTypeTone: {}, annotationTypeNoise: {}, annotationTypeFade: {}, annotationTypeOther: {},
 }
 
 type recordingAnnotation struct {
@@ -34,6 +28,16 @@ type recordingAnnotation struct {
 	Type        string `json:"type,omitempty"`
 	Label       string `json:"label"`
 	Notes       string `json:"notes,omitempty"`
+}
+
+type annotationSearchHit struct {
+	Annotation    recordingAnnotation `json:"annotation"`
+	RecordingID   string              `json:"recording_id"`
+	ObservationID string              `json:"observation_id"`
+	Path          string              `json:"path"`
+	Format        string              `json:"format"`
+	DurationMS    int64               `json:"duration_ms,omitempty"`
+	Managed       bool                `json:"managed,omitempty"`
 }
 
 func normalizeAnnotationType(value string) string {
@@ -104,6 +108,54 @@ func (s *recordingStore) listAnnotations(recordingID string) ([]recordingAnnotat
 		return out[i].StartMS < out[j].StartMS
 	})
 	return out, nil
+}
+
+func (s *recordingStore) searchAnnotations(query, annotationType string, limit int) ([]annotationSearchHit, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	query = strings.ToLower(strings.TrimSpace(query))
+	annotationType = strings.TrimSpace(annotationType)
+	if annotationType != "" {
+		if _, ok := annotationTypes[annotationType]; !ok {
+			return nil, errors.New("invalid annotation type")
+		}
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	recordings := make(map[string]recording, len(s.data.Recordings))
+	for _, rec := range s.data.Recordings {
+		recordings[rec.ID] = rec
+	}
+	hits := make([]annotationSearchHit, 0)
+	for _, annotation := range s.data.Annotations {
+		annotation.Type = normalizeAnnotationType(annotation.Type)
+		if annotationType != "" && annotation.Type != annotationType {
+			continue
+		}
+		haystack := strings.ToLower(strings.Join([]string{annotation.Type, annotation.Label, annotation.Notes}, " "))
+		if query != "" && !strings.Contains(haystack, query) {
+			continue
+		}
+		rec, ok := recordings[annotation.RecordingID]
+		if !ok {
+			continue
+		}
+		hits = append(hits, annotationSearchHit{Annotation: annotation, RecordingID: rec.ID, ObservationID: rec.ObservationID, Path: rec.Path, Format: rec.Format, DurationMS: rec.DurationMS, Managed: rec.Managed})
+	}
+	sort.Slice(hits, func(i, j int) bool {
+		if hits[i].RecordingID == hits[j].RecordingID {
+			return hits[i].Annotation.StartMS < hits[j].Annotation.StartMS
+		}
+		return hits[i].RecordingID > hits[j].RecordingID
+	})
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
+	return hits, nil
 }
 
 func (s *recordingStore) addAnnotation(recordingID string, annotation recordingAnnotation) (recordingAnnotation, error) {

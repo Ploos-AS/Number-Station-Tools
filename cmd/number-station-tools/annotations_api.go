@@ -1,8 +1,28 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+	"strconv"
+)
 
 func registerAnnotationHandlers(mux *http.ServeMux, rs *recordingStore) {
+	mux.HandleFunc("GET /api/annotations", func(w http.ResponseWriter, r *http.Request) {
+		limit := 50
+		if raw := r.URL.Query().Get("limit"); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 1 || parsed > 200 {
+				http.Error(w, "limit must be between 1 and 200", http.StatusBadRequest)
+				return
+			}
+			limit = parsed
+		}
+		hits, err := rs.searchAnnotations(r.URL.Query().Get("q"), r.URL.Query().Get("type"), limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, hits)
+	})
 	mux.HandleFunc("GET /api/recordings/{id}/annotations", func(w http.ResponseWriter, r *http.Request) {
 		annotations, err := rs.listAnnotations(r.PathValue("id"))
 		if err != nil {
