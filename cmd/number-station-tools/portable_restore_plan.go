@@ -40,13 +40,13 @@ type portablePlanFileFingerprint struct {
 }
 
 type portablePlanLocalState struct {
-	Recordings  []recording           `json:"recordings"`
-	Annotations []recordingAnnotation `json:"annotations"`
-	Observations []observation        `json:"observations"`
+	Recordings   []recording           `json:"recordings"`
+	Annotations  []recordingAnnotation `json:"annotations"`
+	Observations []observation         `json:"observations"`
 }
 
 type portablePlanFingerprint struct {
-	Manifest   recordingBundleManifest        `json:"manifest"`
+	Manifest   recordingBundleManifest       `json:"manifest"`
 	Files      []portablePlanFileFingerprint `json:"files"`
 	Plan       portableRestorePlan           `json:"plan"`
 	LocalState portablePlanLocalState        `json:"local_state"`

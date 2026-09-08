@@ -11,7 +11,7 @@ import (
 
 type portableSelectiveRestoreResult struct {
 	portableRestoreResult
-	Selected         int `json:"selected"`
+	Selected        int `json:"selected"`
 	SkippedByPolicy int `json:"skipped_by_policy"`
 }
 
