@@ -3,93 +3,21 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M5.7
+## Current milestone: M5.8
 
-The application currently provides:
+The application currently provides a local station catalogue, structured observations and UTC schedules; managed WAV/FLAC recording ingest and playback; waveform, frequency, spectrogram and fingerprint analysis; clustering and human review; timestamp annotations with search and transfer; portable metadata manifests and verified `tar.gz` archives; safe dry-run, selective and full restore; token-bound restore planning; and tamper-evident restore receipts.
 
-- local station catalogue
-- structured observation logbook
-- persistent UTC schedules and frequencies
-- server-side `on now / next` schedule evaluation in UTC
-- schedule-to-observation logging
-- recording metadata linked to observations
-- managed local WAV/FLAC upload under `/data/audio`
-- automatic size, SHA-256, duration, sample rate and channel metadata
-- compact waveform previews for managed PCM WAV recordings
-- compact 64-bin frequency magnitude previews for managed PCM WAV recordings
-- compact 24×32 time-frequency mini-spectrograms for managed PCM WAV recordings
-- compact local signal fingerprints and deterministic recording similarity search
-- local fingerprint clustering with configurable similarity threshold
-- exact file-duplicate flagging from matching SHA-256 values inside clusters
-- persistent local cluster review/classification with notes and UTC review time
-- membership-stable cluster identifiers so reviews only attach to the reviewed member set
-- inline local playback for managed recordings with HTTP byte-range seeking
-- synchronized playback cursor across waveform and mini-spectrogram previews
-- click/drag seeking directly on waveform and mini-spectrogram previews
-- keyboard seeking on focused previews with arrow, Home and End keys
-- temporary A-B loop regions with repeated playback and highlighted selection
-- persistent recording point bookmarks and timestamp-interval annotations
-- visual point/interval annotation markers directly on waveform and spectrogram previews
-- edit existing annotations while preserving their stable annotation IDs
-- direct Bookmark creation by right-clicking a waveform/spectrogram position
-- keyboard Bookmark creation with `B` on a focused seek preview
-- fixed annotation categories: `call-up`, `station ID`, `message`, `tone`, `noise`, `fade`, `other`
-- per-recording annotation filtering by category with category-specific marker styling
-- cross-recording annotation search by type, label and notes with direct jump-to-recording/timestamp
-- versioned JSON annotation export/import with conservative recording matching and duplicate suppression
-- flat CSV annotation export for archival and offline analysis
-- versioned metadata-only recording/annotation manifest export with checksums and provenance
-- full portable `tar.gz` archival export containing `manifest.json` plus verified managed WAV/FLAC files
-- safe restore/import of M5.0 archives with staged extraction, checksum validation and collision protection
-- dry-run restore planning with per-recording `import`, `duplicate`, `conflict` and `unmatched` classification
-- selective restore of operator-chosen `import` candidates from a validated plan
-- deterministic SHA-256 plan tokens binding selective restore to the reviewed archive and local state
-- strict rejection of stale plan tokens after archive, recording, annotation or observation changes
-- strict rejection of selected duplicates, conflicts, unmatched observations and unknown recording IDs
-- persistent local restore receipts for successful full and selective restores
-- SHA-256 receipt hash chaining with `previous_hash` and `receipt_hash`
-- read-only receipt-chain verification with tamper detection and chain head reporting
-- deterministic external receipt-chain anchor export with receipt count and chain-head hash
-- verification of saved/offline anchors against the current chain, including valid later extensions
-- read-only restore audit history with mode, UTC time, plan token, selection and result counts
-- per-recording annotation import/skip counts before restore
-- local rebuild of waveform, frequency, spectrogram and fingerprint data from restored managed audio
-- local JSON persistence under `/data`
-- embedded web UI and JSON API
-- dependency-free Go build and non-root OCI runtime
+M5.7 added deterministic external receipt-chain anchors. M5.8 adds a separate local registry of anchor export requests so the operator can see when the chain was last anchored and how many receipts have accumulated since then. The registry stores only anchor metadata (ID, UTC export time, receipt count and head hash), never archive or audio payloads.
 
-Cluster reviews support `same transmission`, `same station`, `false positive`,
-and `duplicate capture`. They are stored locally alongside recording metadata and
-do not require AI, an API key, or an external service.
+`GET /api/recording-archive/receipts/anchors/status` reports `never-anchored`, `current`, `extended`, or `mismatch`, plus `receipts_since_last_anchor`. `GET /api/recording-archive/receipts/anchors?limit=50` returns anchor-export history newest first. A successful anchor download request is registered automatically.
 
-Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M5.7 does not
-transcode audio or send it to an external service. Saved timestamp annotations
-persist in `recordings.json`, can be searched across the archive, exported as JSON
-or CSV, and safely imported from the versioned JSON format.
+The local registry is operational metadata, not an independent trust anchor. M5.7's security benefit still requires keeping the downloaded anchor outside the appliance trust boundary. Registration proves that the server generated an export response; it cannot prove that the client safely retained the file.
 
-M5.7 extends the M5.6 tamper-evident receipt chain with a small external anchor
-format. `GET /api/recording-archive/receipts/anchor` downloads a deterministic JSON
-object containing `version`, `receipt_count` and `head_hash`. Store that file on a
-separate machine, offline medium, Git repository, backup system or other independent
-location. `POST /api/recording-archive/receipts/anchor/verify` verifies the saved
-anchor against the current local chain. A matching prefix remains valid if legitimate
-new receipts have been appended after the anchor was created; rewriting an anchored
-prefix changes its hash and is detected. No external provider or API key is required.
+Core workflows remain local-first and require no SDR, API key or external provider.
 
-The anchor is evidence only when an independent copy is retained outside the same
-trust boundary as the receipt store. It is not a digital signature, trusted timestamp
-or proof against an attacker who can replace both the local chain and every external
-copy of its anchor.
-
-The application does not require an SDR, receiver, API key or external data
-provider for these workflows.
-
-See [docs/M5_7.md](docs/M5_7.md) for the current scope.
+See [docs/M5_8.md](docs/M5_8.md) for the current scope.
 
 ## Run with Go
-
-For a host run, select writable data paths:
 
 ```sh
 NUMBER_STATION_TOOLS_DATA=./number-station-tools.json \
@@ -121,6 +49,8 @@ Then open <http://localhost:8080>.
 - `GET /api/recording-archive/receipts?limit=50`
 - `GET /api/recording-archive/receipts/verify`
 - `GET /api/recording-archive/receipts/anchor`
+- `GET /api/recording-archive/receipts/anchors?limit=50`
+- `GET /api/recording-archive/receipts/anchors/status`
 - `POST /api/recording-archive/receipts/anchor/verify`
 - `POST /api/recording-archive/plan`
 - `POST /api/recording-archive/import-selected?recording_id=...&plan_token=...`
@@ -142,24 +72,7 @@ Then open <http://localhost:8080>.
 
 ## Direction
 
-Number Station Tools is intended to grow into a workbench for:
-
-- station identifiers, aliases and historical metadata
-- UTC transmission schedules and frequencies
-- structured observation logging
-- message and group transcription
-- WAV/FLAC recording archive and interactive playback
-- waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
-- categorized timestamp annotations, bookmarks and operator notes on recordings
-- cross-recording annotation search, portable transfer and timeline navigation
-- portable recording manifests, verified archival bundles, token-bound dry-run planning, policy-controlled restore and externally anchorable tamper-evident audit receipts
-- human review and classification of signal matches and repeated transmissions
-- optional SDR and network-receiver integrations
-- optional data-provider imports
-- local-first archival and search
-
-Core functionality should remain useful without API keys, and receiver,
-recording and observation data should remain local by default.
+Number Station Tools is intended to grow into a local-first workbench for station metadata, schedules, observation logging, message transcription, recording archival/playback, signal analysis, annotations, portable verified archives, policy-controlled restore, and independently anchorable tamper-evident audit history. Optional SDR/network-receiver and data-provider integrations may be added later without making them requirements for core use.
 
 ## License
 
