@@ -38,6 +38,15 @@ func registerRecordingRestoreHandler(mux *http.ServeMux, db *store, rs *recordin
 		}
 		writeJSON(w, http.StatusOK, plan)
 	})
+	mux.HandleFunc("POST /api/recording-archive/import-selected", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
+		result, err := restorePortableArchiveSelected(r.Body, db, rs, audioDir, r.URL.Query()["recording_id"])
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	})
 	mux.HandleFunc("POST /api/recording-archive/import", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxPortableArchiveUploadBytes)
 		result, err := restorePortableArchive(r.Body, db, rs, audioDir)
