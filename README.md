@@ -3,7 +3,7 @@
 Self-hosted, local-first tools for numbers stations, shortwave monitoring and
 signal-analysis workflows.
 
-## Current milestone: M5.4
+## Current milestone: M5.5
 
 The application currently provides:
 
@@ -46,6 +46,8 @@ The application currently provides:
 - deterministic SHA-256 plan tokens binding selective restore to the reviewed archive and local state
 - strict rejection of stale plan tokens after archive, recording, annotation or observation changes
 - strict rejection of selected duplicates, conflicts, unmatched observations and unknown recording IDs
+- persistent local restore receipts for successful full and selective restores
+- read-only restore audit history with mode, UTC time, plan token, selection and result counts
 - per-recording annotation import/skip counts before restore
 - local rebuild of waveform, frequency, spectrogram and fingerprint data from restored managed audio
 - local JSON persistence under `/data`
@@ -57,23 +59,22 @@ and `duplicate capture`. They are stored locally alongside recording metadata an
 do not require AI, an API key, or an external service.
 
 Managed playback reads audio directly from the appliance. Browser-native codec
-support determines whether a WAV/FLAC recording can be played; M5.4 does not
+support determines whether a WAV/FLAC recording can be played; M5.5 does not
 transcode audio or send it to an external service. Saved timestamp annotations
 persist in `recordings.json`, can be searched across the archive, exported as JSON
 or CSV, and safely imported from the versioned JSON format.
 
-M5.4 hardens the M5.2/M5.3 `plan -> selective restore` flow. Each successful plan
-returns a SHA-256 `plan_token` covering the validated manifest, managed-audio
-inventory, complete restore classification and a canonical snapshot of local
-recordings, annotations and observations. Selective restore requires that token and
-recomputes the plan before commit. If the archive or local restore-relevant state
-has changed, the request is rejected and the operator must plan again. No force
-overwrite mode is introduced.
+M5.5 adds an operator-visible audit primitive to the hardened restore flow. Every
+successful full or selective restore persists a receipt in a separate local JSON
+file beside the recording store. Receipts record a generated receipt ID, UTC time,
+restore mode, result counts and, for selective restore, the approved plan token and
+selected recording IDs. The receipt log contains no archive payload or duplicated
+audio. `GET /api/recording-archive/receipts` returns recent receipts read-only.
 
 The application does not require an SDR, receiver, API key or external data
 provider for these workflows.
 
-See [docs/M5_4.md](docs/M5_4.md) for the current scope.
+See [docs/M5_5.md](docs/M5_5.md) for the current scope.
 
 ## Run with Go
 
@@ -106,6 +107,7 @@ Then open <http://localhost:8080>.
 - `GET/POST /api/recordings`
 - `GET /api/recording-bundle`
 - `GET /api/recording-archive`
+- `GET /api/recording-archive/receipts?limit=50`
 - `POST /api/recording-archive/plan`
 - `POST /api/recording-archive/import-selected?recording_id=...&plan_token=...`
 - `POST /api/recording-archive/import`
@@ -136,7 +138,7 @@ Number Station Tools is intended to grow into a workbench for:
 - waveform, frequency, spectrogram, fingerprint and signal-analysis workflows
 - categorized timestamp annotations, bookmarks and operator notes on recordings
 - cross-recording annotation search, portable transfer and timeline navigation
-- portable recording manifests, verified archival bundles, token-bound dry-run planning and policy-controlled local restore
+- portable recording manifests, verified archival bundles, token-bound dry-run planning, policy-controlled restore and local audit receipts
 - human review and classification of signal matches and repeated transmissions
 - optional SDR and network-receiver integrations
 - optional data-provider imports
